@@ -52,7 +52,10 @@
           </div>
           <button id="btn-roster-template" class="btn outline">Download CSV template</button>
           <div id="roster-count" class="small"></div>
-          <div class="scroll"><table class="table" id="tbl-roster"></table></div>
+          <!-- SCROLLABLE ROSTER -->
+          <div class="scroll roster-scroll">
+            <table class="table" id="tbl-roster"></table>
+          </div>
         </div>
       </div>
 
@@ -97,10 +100,9 @@
           </div>
         </div>
 
-        <!-- Player form with name & ID search -->
+        <!-- Player form (unchanged content, just shown here minimally) -->
         <div class="card">
           <h2>Add / Update Player</h2>
-
           <div class="grid2">
             <div><label>Search by name</label><input id="pf-search" class="input" placeholder="Type a name to search directory"/></div>
             <div><label>Lookup by Player ID</label><input id="pf-lookup-id" class="input" placeholder="Paste Player ID"/></div>
@@ -134,14 +136,16 @@
               <button id="btn-clear-player" class="btn outline">Clear</button>
             </div>
           </div>
-
-          <p class="small muted">Privacy: Phone, email, address, DOB are stored locally only. Public directory contains only name, positions, number, ranks, and Player ID.</p>
+          <p class="small muted">Privacy: Phone, email, address, DOB are stored locally only.</p>
         </div>
       </div>
 
       <div class="card">
         <h2>Player stats (sortable)</h2>
-        <div class="scroll"><table class="table sortable" id="tbl-stats"></table></div>
+        <!-- SCROLLABLE STATS -->
+        <div class="scroll stats-scroll">
+          <table class="table sortable" id="tbl-stats"></table>
+        </div>
       </div>
     </section>
   </main>

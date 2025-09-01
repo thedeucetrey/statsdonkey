@@ -9,12 +9,14 @@ html,body{ margin:0; padding:0; font-family: ui-sans-serif, system-ui, -apple-sy
 .btn{ background:var(--acc); color:#06220f; border:none; border-radius:10px; padding:10px 14px; font-weight:700; cursor:pointer; }
 .btn.outline{ background:transparent; color:var(--acc); border:1px solid var(--acc); }
 .smallbtn{ padding:6px 10px; font-size:12px; }
-.table{ width:100%; border-collapse: collapse; margin-top:10px; }
+.table{ width:100%; border-collapse: separate; border-spacing: 0; margin-top:10px; }
 .table th, .table td{ padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; }
+.table thead th{ position: sticky; top: 0; z-index: 1; background: var(--card); }
 .table th.sortable-col{ cursor:pointer; }
 .small{ font-size:12px; }
 .muted{ color:var(--mut); }
 .error{ color:var(--err); margin-top: 10px; }
+
 nav{ position:sticky; top:0; z-index:10; background:rgba(11,18,32,.9); border-bottom:1px solid var(--line); backdrop-filter: blur(6px); }
 nav .wrap{ display:flex; align-items:center; gap:16px; padding:12px 20px; max-width:1100px; margin:0 auto; }
 .brand{ font-weight:800; color:var(--acc); }
@@ -24,10 +26,15 @@ nav .wrap{ display:flex; align-items:center; gap:16px; padding:12px 20px; max-wi
 .logo-preview img{ max-width:220px; max-height:220px; border-radius:12px; border:1px solid var(--line); display:block; }
 code{ background:#0b1326; padding:2px 6px; border-radius:6px; }
 h1,h2{ margin: 6px 0 12px; }
-.scroll{ max-height: 320px; overflow: auto; border:1px solid var(--line); border-radius:12px; padding:6px; }
-.toggle{ display:flex; align-items:center; gap:6px; }
 
-/* suggestions dropdown */
+/* Scroll containers */
+.scroll{ overflow: auto; border:1px solid var(--line); border-radius:12px; padding:6px; }
+.roster-scroll{ max-height: 420px; }
+.stats-scroll{ max-height: 420px; }
+
+/* Suggestions dropdown */
 .suggest{ background:#0b1326; border:1px solid var(--line); border-radius:12px; padding:4px; margin:6px 0; max-height:180px; overflow:auto; }
 .suggest .item{ padding:6px 8px; border-radius:8px; cursor:pointer; }
 .suggest .item:hover{ background:#0f172a; }
+
+/* Calendar bits remain in your existing CSS if present */
