@@ -1,7 +1,7 @@
-// Reuses a single MongoDB connection across invocations
+// Reuse a single MongoDB connection across calls
 const { MongoClient } = require('mongodb');
 
-const uri = process.env.MONGODB_URI; // set in Vercel
+const uri = process.env.MONGODB_URI; // <-- set in Vercel (do NOT paste in code)
 if (!uri) throw new Error('MONGODB_URI is not set');
 
 let clientPromise;
