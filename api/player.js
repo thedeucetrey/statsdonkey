@@ -1,9 +1,8 @@
 const clientPromise = require('./_mongo');
+const { readJson, cors } = require('./_util');
 
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://thedeucetrey.github.io');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  cors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   const DB_NAME = process.env.DB_NAME || 'statsdonkey';
@@ -14,17 +13,16 @@ module.exports = async (req, res) => {
     const players = db.collection('players');
 
     if (req.method === 'GET') {
-      const { id, q } = req.query || {};
-      if (id) {
-        const doc = await players.findOne({ id });
-        if (doc) delete doc._id;
+      const q = (req.query && (req.query.q || req.query.id)) ? req.query : {};
+      if (q.id) {
+        const doc = await players.findOne({ id: q.id }, { projection: { _id: 0 } });
         return res.status(200).json(doc || null);
       }
-      if (q) {
+      if (q.q) {
         const results = await players.find({
           $or: [
-            { first: { $regex: q, $options: 'i' } },
-            { last:  { $regex: q, $options: 'i' } }
+            { first: { $regex: q.q, $options: 'i' } },
+            { last:  { $regex: q.q, $options: 'i' } }
           ]
         }, { projection: { _id: 0 } }).limit(10).toArray();
         return res.status(200).json(results);
@@ -33,7 +31,8 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === 'POST') {
-      const { id, first, last, number, positions, spnRank, nsaRank } = req.body || {};
+      const body = await readJson(req);
+      const { id, first, last, number, positions, spnRank, nsaRank } = body || {};
       if (!id || !first || !last) return res.status(400).json({ ok:false, error:'id, first, last required' });
       await players.updateOne(
         { id },
@@ -43,8 +42,8 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
-    res.status(405).json({ ok:false, error:'Method Not Allowed' });
+    return res.status(405).json({ ok:false, error:'Method Not Allowed' });
   } catch (e) {
-    res.status(500).json({ ok:false, error:String(e.message||e) });
+    return res.status(500).json({ ok:false, error:String(e.message||e) });
   }
 };
