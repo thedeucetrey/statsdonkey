@@ -47,7 +47,7 @@ function onLogoUpload(ev){
   reader.readAsDataURL(file);
 }
 
-// ========== CSV helpers ==========
+// ========== CSV helpers (for bulk CSV roster) ==========
 function parseCSV(text){
   const rows = []; let i=0, field='', row=[], inQuotes=false;
   while(i < text.length){
@@ -76,7 +76,7 @@ function downloadText(filename, text){
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0);
 }
 
-// ========== Roster upload ==========
+// ========== Roster upload (CSV) ==========
 function onRosterUpload(){
   const f = $('#roster-file').files && $('#roster-file').files[0]; if (!f) return alert('Choose a CSV file first');
   const reader = new FileReader();
@@ -86,7 +86,11 @@ function onRosterUpload(){
     for (const it of items){
       const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
       const positions = (it.positions || '').split(/\s*,\s*/).filter(Boolean);
-      data.roster.push({ id, first: it.first||'', last: it.last||'', number: it.number?Number(it.number):undefined, positions });
+      data.roster.push({ id, first: it.first||'', last: it.last||'', number: it.number?Number(it.number):undefined, positions,
+        dob:'', phone:'', email:'', address:'', spnRank:'', nsaRank:''
+      });
+      // also push to public directory (no private fields)
+      upsertPlayerPublic({ id, first: it.first||'', last: it.last||'', number: it.number||'', positions, spnRank:'', nsaRank:'' });
     }
     saveData(data); renderRosterTable(); renderStatsTable();
   };
@@ -95,15 +99,90 @@ function onRosterUpload(){
 function renderRosterTable(){
   const data = loadData();
   $('#roster-count').textContent = data.roster.length ? (data.roster.length + ' players') : 'No players yet';
-  const rows = data.roster.map(p => `<tr><td>${p.first}</td><td>${p.last}</td><td>${p.number||''}</td><td>${(p.positions||[]).join(', ')}</td></tr>`).join('');
-  $('#tbl-roster').innerHTML = '<thead><tr><th>First</th><th>Last</th><th>#</th><th>Positions</th></tr></thead><tbody>' + rows + '</tbody>';
+  const rows = data.roster.map(p => `<tr>
+      <td>${p.first} ${p.last}</td>
+      <td>${p.number||''}</td>
+      <td>${(p.positions||[]).join(', ')}</td>
+      <td>${p.spnRank||''}</td>
+      <td>${p.nsaRank||''}</td>
+      <td class="small">${p.id}</td>
+      <td><button class="btn outline smallbtn" data-edit="${p.id}">Edit</button></td>
+    </tr>`).join('');
+  $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>SPN</th><th>NSA</th><th>ID</th><th></th></tr></thead><tbody>' + rows + '</tbody>';
+  // bind edit buttons
+  $$('#tbl-roster [data-edit]').forEach(btn => btn.addEventListener('click', () => editPlayer(btn.getAttribute('data-edit'))));
 }
 function onRosterTemplate(){
   const text = 'first,last,number,positions\nJane,Doe,12,"SS,3B"\nJohn,Smith,7,"OF"';
   downloadText('roster-template.csv', text);
 }
 
-// ========== Scheduler (form) ==========
+// ========== Add / Update Player form ==========
+function readPlayerForm(){
+  return {
+    id: $('#pf-id').value.trim() || (crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    first: $('#pf-first').value.trim(),
+    last: $('#pf-last').value.trim(),
+    positions: $('#pf-pos').value.split(/\s*,\s*/).filter(Boolean),
+    number: $('#pf-num').value ? Number($('#pf-num').value) : undefined,
+    dob: $('#pf-dob').value || '',
+    phone: $('#pf-phone').value.trim(),
+    email: $('#pf-email').value.trim(),
+    address: $('#pf-address').value.trim(),
+    spnRank: $('#pf-spn').value.trim(),
+    nsaRank: $('#pf-nsa').value.trim()
+  };
+}
+function writePlayerForm(p){
+  $('#pf-id').value = p.id || '';
+  $('#pf-first').value = p.first || '';
+  $('#pf-last').value = p.last || '';
+  $('#pf-pos').value = (p.positions||[]).join(', ');
+  $('#pf-num').value = p.number || '';
+  $('#pf-dob').value = p.dob || '';
+  $('#pf-phone').value = p.phone || '';
+  $('#pf-email').value = p.email || '';
+  $('#pf-address').value = p.address || '';
+  $('#pf-spn').value = p.spnRank || '';
+  $('#pf-nsa').value = p.nsaRank || '';
+}
+function clearPlayerForm(){ writePlayerForm({}); }
+
+function onSavePlayer(){
+  const p = readPlayerForm();
+  if (!p.first || !p.last) return alert('First and Last name are required');
+  const data = loadData();
+  const i = data.roster.findIndex(x => x.id === p.id);
+  if (i >= 0) data.roster[i] = p; else data.roster.push(p);
+  saveData(data);
+  renderRosterTable(); renderStatsTable();
+  // upsert to public directory (no private fields)
+  upsertPlayerPublic({ id: p.id, first: p.first, last: p.last, number: p.number||'', positions: p.positions||[], spnRank: p.spnRank||'', nsaRank: p.nsaRank||'' });
+  alert('Player saved.');
+}
+function editPlayer(id){
+  const data = loadData();
+  const p = data.roster.find(x => x.id === id);
+  if (!p) return;
+  writePlayerForm(p);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function onAddById(){
+  const id = $('#pf-lookup-id').value.trim();
+  if (!id) return;
+  getPlayerPublicById(id).then(pub => {
+    if (!pub){ alert('No player found with that ID'); return; }
+    const data = loadData();
+    if (data.roster.some(x => x.id === id)){ alert('Player already in roster'); return; }
+    data.roster.push({ id: pub.id, first: pub.first, last: pub.last, positions: pub.positions||[], number: pub.number?Number(pub.number):undefined,
+      dob:'', phone:'', email:'', address:'', spnRank: pub.spnRank||'', nsaRank: pub.nsaRank||''
+    });
+    saveData(data); renderRosterTable(); renderStatsTable();
+    alert('Player added from directory.');
+  }).catch(()=> alert('Lookup failed (check Cloud Sync endpoint).'));
+}
+
+// ========== Scheduler (form) — unchanged from prior step ==========
 function onScheduleAdd(){
   const date = $('#sch-date').value;
   const time = $('#sch-time').value;
@@ -152,7 +231,7 @@ function renderStatsTable(){
   }));
 }
 
-// ========== Routing ==========
+// ========== Routing & Wiring ==========
 function route(){
   const authed = !!loadAuth();
   if (authed){
@@ -164,7 +243,6 @@ function route(){
   }
 }
 
-// ========== Wire up ==========
 document.addEventListener('DOMContentLoaded', () => {
   $('#btn-login').addEventListener('click', onLogin);
   $('#btn-logout').addEventListener('click', onLogout);
@@ -173,6 +251,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('#btn-roster-upload').addEventListener('click', onRosterUpload);
   $('#btn-roster-template').addEventListener('click', onRosterTemplate);
+
+  $('#btn-save-player').addEventListener('click', onSavePlayer);
+  $('#btn-clear-player').addEventListener('click', clearPlayerForm);
+  $('#btn-add-by-id').addEventListener('click', onAddById);
 
   $('#btn-sch-add').addEventListener('click', onScheduleAdd);
 

@@ -58,46 +58,48 @@
 
       <div class="grid2">
         <div class="card">
-          <h2>Scheduler (form)</h2>
+          <h2>Add / Update Player</h2>
           <div class="grid2">
-            <div>
-              <label>Date</label>
-              <input id="sch-date" class="input" type="date"/>
-            </div>
-            <div>
-              <label>Time</label>
-              <input id="sch-time" class="input" type="time"/>
-            </div>
+            <div><label>First name</label><input id="pf-first" class="input" placeholder="First"/></div>
+            <div><label>Last name</label><input id="pf-last" class="input" placeholder="Last"/></div>
           </div>
           <div class="grid2">
-            <div>
-              <label>Field</label>
-              <input id="sch-field" class="input" placeholder="Field 3"/>
-            </div>
-            <div>
-              <label>League/Tournament</label>
-              <input id="sch-comp" class="input" placeholder="Summer League / Tournament X"/>
-            </div>
+            <div><label>Positions</label><input id="pf-pos" class="input" placeholder="SS, 3B, OF"/></div>
+            <div><label>Number</label><input id="pf-num" type="number" class="input" placeholder="7"/></div>
           </div>
           <div class="grid2">
-            <div>
-              <label>Home team</label>
-              <input id="sch-home" class="input" placeholder="Argos"/>
-            </div>
-            <div>
-              <label>Away team</label>
-              <input id="sch-away" class="input" placeholder="Opponents"/>
+            <div><label>DOB</label><input id="pf-dob" type="date" class="input"/></div>
+            <div><label>SPN rank</label><input id="pf-spn" class="input" placeholder="eg. D, E, Comp"/></div>
+          </div>
+          <div class="grid2">
+            <div><label>NSA rank</label><input id="pf-nsa" class="input" placeholder="eg. D1, Rec"/></div>
+            <div><label>Phone <span class="small">(coach-only)</span></label><input id="pf-phone" class="input" type="tel" placeholder="(555) 555-5555"/></div>
+          </div>
+          <div class="grid2">
+            <div><label>Email <span class="small">(coach-only)</span></label><input id="pf-email" class="input" type="email" placeholder="player@example.com"/></div>
+            <div><label>Address <span class="small">(coach-only)</span></label><input id="pf-address" class="input" placeholder="123 Main St"/></div>
+          </div>
+          <div class="grid2">
+            <div><label>Player ID</label><input id="pf-id" class="input" placeholder="auto if blank"/></div>
+            <div style="display:flex; gap:8px; align-items:end;">
+              <button id="btn-save-player" class="btn">Save Player</button>
+              <button id="btn-clear-player" class="btn outline">Clear</button>
             </div>
           </div>
-          <button id="btn-sch-add" class="btn">Add game</button>
-          <a href="calendar.html" class="btn outline">Open Calendar</a>
-          <div id="schedule-count" class="small"></div>
-          <div class="scroll"><table class="table" id="tbl-schedule"></table></div>
+
+          <div class="divider"></div>
+          <h3>Add Existing Player by ID</h3>
+          <div class="grid2">
+            <input id="pf-lookup-id" class="input" placeholder="Paste Player ID"/>
+            <button id="btn-add-by-id" class="btn">Add to Roster</button>
+          </div>
+
+          <p class="small muted">Privacy: Phone, email, address, DOB are stored locally for your team only and are not uploaded when Cloud Sync is enabled. Public player directory includes only name, number, positions, ranks, and Player ID.</p>
         </div>
 
         <div class="card">
           <h2>Player stats (sortable)</h2>
-          <p class="small">Click a column to sort. This is scrollable now.</p>
+          <p class="small">Click a column to sort. This is scrollable.</p>
           <div class="scroll"><table class="table sortable" id="tbl-stats"></table></div>
         </div>
       </div>
