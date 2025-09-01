@@ -17,26 +17,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # TODO: point this to your real API once deployed (Render/Railway/etc.)
-      NEXT_PUBLIC_API_BASE: https://example.com
       NODE_ENV: production
+      # TODO: update when your API is hosted somewhere public:
+      NEXT_PUBLIC_API_BASE: https://example.com
     steps:
       - uses: actions/checkout@v4
+
+      # Install PNPM (no lockfile required)
       - uses: pnpm/action-setup@v4
         with: { version: 9 }
+
+      # Install Node (no cache)
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
+
+      # Install workspace deps
       - run: pnpm install
+
+      # Build & export Next app
       - name: Build & export Next (apps/web)
         working-directory: apps/web
         run: |
           pnpm build
           pnpm exec next export -o out
-          # SPA fallback + GH Pages quirks
           cp out/index.html out/404.html
           touch out/.nojekyll
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -51,3 +58,4 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
