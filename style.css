@@ -25,5 +25,9 @@ nav .wrap{ display:flex; align-items:center; gap:16px; padding:12px 20px; max-wi
 code{ background:#0b1326; padding:2px 6px; border-radius:6px; }
 h1,h2{ margin: 6px 0 12px; }
 .scroll{ max-height: 320px; overflow: auto; border:1px solid var(--line); border-radius:12px; padding:6px; }
-.divider{ height:1px; background:var(--line); margin:12px 0; }
 .toggle{ display:flex; align-items:center; gap:6px; }
+
+/* suggestions dropdown */
+.suggest{ background:#0b1326; border:1px solid var(--line); border-radius:12px; padding:4px; margin:6px 0; max-height:180px; overflow:auto; }
+.suggest .item{ padding:6px 8px; border-radius:8px; cursor:pointer; }
+.suggest .item:hover{ background:#0f172a; }

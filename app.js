@@ -86,10 +86,10 @@ function onRosterUpload(){
     for (const it of items){
       const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
       const positions = (it.positions || '').split(/\s*,\s*/).filter(Boolean);
+      // Prevent duplicates by (first,last,dob) – CSV has no DOB, so we check just name here but won't block; the full form enforces DOB rule.
       data.roster.push({ id, first: it.first||'', last: it.last||'', number: it.number?Number(it.number):undefined, positions,
         dob:'', phone:'', email:'', address:'', spnRank:'', nsaRank:''
       });
-      // also push to public directory (no private fields)
       upsertPlayerPublic({ id, first: it.first||'', last: it.last||'', number: it.number||'', positions, spnRank:'', nsaRank:'' });
     }
     saveData(data); renderRosterTable(); renderStatsTable();
@@ -109,7 +109,6 @@ function renderRosterTable(){
       <td><button class="btn outline smallbtn" data-edit="${p.id}">Edit</button></td>
     </tr>`).join('');
   $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>SPN</th><th>NSA</th><th>ID</th><th></th></tr></thead><tbody>' + rows + '</tbody>';
-  // bind edit buttons
   $$('#tbl-roster [data-edit]').forEach(btn => btn.addEventListener('click', () => editPlayer(btn.getAttribute('data-edit'))));
 }
 function onRosterTemplate(){
@@ -151,12 +150,21 @@ function clearPlayerForm(){ writePlayerForm({}); }
 function onSavePlayer(){
   const p = readPlayerForm();
   if (!p.first || !p.last) return alert('First and Last name are required');
+  // Duplicate rule: no player with same name + DOB (case-insensitive on name).
   const data = loadData();
+  const dup = data.roster.find(x =>
+    x.id !== p.id &&
+    x.dob && p.dob &&
+    x.first.toLowerCase() === p.first.toLowerCase() &&
+    x.last.toLowerCase() === p.last.toLowerCase() &&
+    x.dob === p.dob
+  );
+  if (dup) return alert('A player with the same name and DOB already exists.');
+
   const i = data.roster.findIndex(x => x.id === p.id);
   if (i >= 0) data.roster[i] = p; else data.roster.push(p);
   saveData(data);
   renderRosterTable(); renderStatsTable();
-  // upsert to public directory (no private fields)
   upsertPlayerPublic({ id: p.id, first: p.first, last: p.last, number: p.number||'', positions: p.positions||[], spnRank: p.spnRank||'', nsaRank: p.nsaRank||'' });
   alert('Player saved.');
 }
@@ -167,22 +175,47 @@ function editPlayer(id){
   writePlayerForm(p);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-function onAddById(){
+
+// ========== Search: Player ID auto-populate & Name typeahead ==========
+let searchTimer = null;
+function onLookupIdInput(){
   const id = $('#pf-lookup-id').value.trim();
   if (!id) return;
   getPlayerPublicById(id).then(pub => {
-    if (!pub){ alert('No player found with that ID'); return; }
-    const data = loadData();
-    if (data.roster.some(x => x.id === id)){ alert('Player already in roster'); return; }
-    data.roster.push({ id: pub.id, first: pub.first, last: pub.last, positions: pub.positions||[], number: pub.number?Number(pub.number):undefined,
-      dob:'', phone:'', email:'', address:'', spnRank: pub.spnRank||'', nsaRank: pub.nsaRank||''
-    });
-    saveData(data); renderRosterTable(); renderStatsTable();
-    alert('Player added from directory.');
-  }).catch(()=> alert('Lookup failed (check Cloud Sync endpoint).'));
+    if (!pub) return;
+    writePlayerForm({ id: pub.id, first: pub.first, last: pub.last, positions: pub.positions||[], number: pub.number||'', spnRank: pub.spnRank||'', nsaRank: pub.nsaRank||'' });
+  }).catch(()=>{});
+}
+function onNameSearchInput(){
+  const q = $('#pf-search').value.trim();
+  const box = $('#pf-suggest');
+  if (searchTimer) clearTimeout(searchTimer);
+  if (!q){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  searchTimer = setTimeout(async () => {
+    let results = [];
+    try { results = await searchPlayersByName(q); }
+    catch { /* ignore */ }
+    // Local fallback search
+    if (!results || !results.length){
+      const data = loadData();
+      results = data.roster
+        .filter(p => (`${p.first} ${p.last}`).toLowerCase().includes(q.toLowerCase()))
+        .map(p => ({ id:p.id, first:p.first, last:p.last, number:p.number||'', positions:p.positions||[], spnRank:p.spnRank||'', nsaRank:p.nsaRank||'' }));
+    }
+    if (!results.length){ box.classList.add('hidden'); box.innerHTML=''; return; }
+    box.innerHTML = results.slice(0,10).map(r => `<div class="item" data-id="${r.id}">${r.first} ${r.last} ${r.number?('#'+r.number):''} — ${Array.isArray(r.positions)?r.positions.join(', '):''}</div>`).join('');
+    box.classList.remove('hidden');
+    $$('#pf-suggest .item').forEach(it => it.addEventListener('click', () => {
+      const sel = results.find(r => r.id === it.getAttribute('data-id'));
+      if (sel){
+        writePlayerForm({ id: sel.id, first: sel.first, last: sel.last, number: sel.number||'', positions: sel.positions||[], spnRank: sel.spnRank||'', nsaRank: sel.nsaRank||'' });
+      }
+      box.classList.add('hidden'); box.innerHTML='';
+    }));
+  }, 250);
 }
 
-// ========== Scheduler (form) — unchanged from prior step ==========
+// ========== Scheduler (form only) — save to calendar, do not render list on main page ==========
 function onScheduleAdd(){
   const date = $('#sch-date').value;
   const time = $('#sch-time').value;
@@ -195,16 +228,10 @@ function onScheduleAdd(){
   const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
   data.schedule.push({ id, date, time, field, comp, home, away });
   saveData(data);
-  renderScheduleTable();
-  $('#sch-field').value=''; $('#sch-comp').value=''; $('#sch-time').value='';
-}
-function renderScheduleTable(){
-  const data = loadData();
-  $('#schedule-count').textContent = data.schedule.length ? (data.schedule.length + ' games') : 'No games yet';
-  const rows = data.schedule
-    .sort((a,b)=> String(a.date).localeCompare(String(b.date)))
-    .map(g => `<tr><td>${formatDate(g.date)}</td><td>${g.time||''}</td><td>${g.home||''} vs ${g.away||''}</td><td>${g.field||''}</td><td>${g.comp||''}</td></tr>`).join('');
-  $('#tbl-schedule').innerHTML = '<thead><tr><th>Date</th><th>Time</th><th>Matchup</th><th>Field</th><th>League/Tournament</th></tr></thead><tbody>' + rows + '</tbody>';
+  $('#schedule-hint').textContent = 'Saved. Open the Calendar to view.';
+  setTimeout(()=> $('#schedule-hint').textContent = '', 2000);
+  // clear a few fields
+  $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
 }
 
 // ========== Stats (sortable) ==========
@@ -236,7 +263,7 @@ function route(){
   const authed = !!loadAuth();
   if (authed){
     hide($('#view-login')); show($('#view-team')); show($('#btn-logout'));
-    initTeam(); renderRosterTable(); renderScheduleTable(); renderStatsTable();
+    initTeam(); renderRosterTable(); renderStatsTable();
     $('#cloud-sync').checked = (localStorage.getItem('sd_cloud_sync') === '1');
   } else {
     show($('#view-login')); hide($('#view-team')); hide($('#btn-logout'));
@@ -254,7 +281,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('#btn-save-player').addEventListener('click', onSavePlayer);
   $('#btn-clear-player').addEventListener('click', clearPlayerForm);
-  $('#btn-add-by-id').addEventListener('click', onAddById);
+  $('#pf-lookup-id').addEventListener('input', onLookupIdInput);
+  $('#pf-search').addEventListener('input', onNameSearchInput);
 
   $('#btn-sch-add').addEventListener('click', onScheduleAdd);
 

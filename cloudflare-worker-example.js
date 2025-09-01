@@ -66,6 +66,25 @@ export default {
         return new Response(JSON.stringify(result.document || null), { status: 200, headers: cors });
       }
 
+      if (request.method === 'GET' && type === 'searchPlayersByName') {
+        const q = url.searchParams.get('q') || '';
+        const regex = { $regex: q, $options: 'i' };
+        const res = await fetch(env.DATA_API_BASE + '/find', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'api-key': env.DATA_API_KEY },
+          body: JSON.stringify({
+            dataSource: env.DATA_SOURCE,
+            database: env.DATABASE,
+            collection: env.PLAYERS_COLLECTION,
+            filter: { $or: [ { first: regex }, { last: regex } ] },
+            limit: 10,
+            projection: { _id: 0, id: 1, first: 1, last: 1, number: 1, positions: 1, spnRank: 1, nsaRank: 1 }
+          })
+        });
+        const result = await res.json();
+        return new Response(JSON.stringify(result.documents || []), { status: 200, headers: cors });
+      }
+
       // Full snapshot replace (optional)
       if (request.method === 'POST' && type === null) {
         const body = await request.json();

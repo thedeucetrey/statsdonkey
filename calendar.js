@@ -17,7 +17,6 @@ function render(){
 
   const grid = document.getElementById('cal-grid');
   grid.innerHTML = '';
-  // header row
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   for (const d of days){
     const h = document.createElement('div');
@@ -25,13 +24,11 @@ function render(){
     h.textContent = d;
     grid.appendChild(h);
   }
-  // blanks before first day
   for (let i=0;i<firstDayIndex;i++){
     const blank = document.createElement('div');
     blank.className = 'cell blank';
     grid.appendChild(blank);
   }
-  // days
   for (let day=1; day<=daysInMonth; day++){
     const cell = document.createElement('div');
     cell.className = 'cell day';

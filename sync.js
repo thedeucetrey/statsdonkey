@@ -18,7 +18,6 @@ async function trySync(payload){
   } catch (e){ console.warn('Sync failed (non-blocking):', e); }
 }
 
-// Public player directory ops (no private fields over the wire)
 async function upsertPlayerPublic(pub){
   const enabled = localStorage.getItem('sd_cloud_sync') === '1';
   if (!enabled || !SYNC_ENDPOINT) return;
@@ -35,5 +34,13 @@ async function getPlayerPublicById(id){
   if (!SYNC_ENDPOINT) { throw new Error('No sync endpoint configured'); }
   const res = await fetch(SYNC_ENDPOINT + '?type=getPlayerPublicById&id=' + encodeURIComponent(id), { method:'GET' });
   if (!res.ok) return null;
+  return await res.json();
+}
+
+// New: name search (first/last regex on public directory)
+async function searchPlayersByName(q){
+  if (!SYNC_ENDPOINT) return [];
+  const res = await fetch(SYNC_ENDPOINT + '?type=searchPlayersByName&q=' + encodeURIComponent(q), { method: 'GET' });
+  if (!res.ok) return [];
   return await res.json();
 }
