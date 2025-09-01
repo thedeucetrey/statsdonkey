@@ -18,8 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_ENV: production
-      # Set this to your real API later (Render/Railway/etc.)
-      NEXT_PUBLIC_API_BASE: https://example.com
+      NEXT_PUBLIC_API_BASE: https://example.com   # update later when your API is hosted
       NEXT_TELEMETRY_DISABLED: 1
 
     steps:
@@ -28,40 +27,30 @@ jobs:
 
       - name: Show repo layout (debug)
         run: |
-          echo "=== repo root ==="
-          ls -la
-          echo "=== apps/web (if exists) ==="
-          ls -la apps/web || true
+          echo "=== repo root ==="; ls -la
+          echo "=== apps/web (if exists) ==="; ls -la apps/web || true
 
       - name: Detect working directory
         id: detect
         run: |
-          if [ -f "package.json" ]; then
-            echo "workdir=." >> $GITHUB_OUTPUT
-            echo "lockfile=$( [ -f pnpm-lock.yaml ] && echo pnpm-lock.yaml || echo )" >> $GITHUB_OUTPUT
-            echo "Detected root package.json"
-          elif [ -f "apps/web/package.json" ]; then
+          if [ -f "apps/web/package.json" ]; then
             echo "workdir=apps/web" >> $GITHUB_OUTPUT
-            echo "lockfile=$( [ -f apps/web/pnpm-lock.yaml ] && echo apps/web/pnpm-lock.yaml || echo )" >> $GITHUB_OUTPUT
             echo "Detected apps/web package.json"
+          elif [ -f "package.json" ]; then
+            echo "workdir=." >> $GITHUB_OUTPUT
+            echo "Detected root package.json"
           else
             echo "No package.json found at repo root or apps/web"; exit 1;
           fi
 
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with: { version: 9 }
-
+      # Use npm to avoid pnpm lockfile/cache noise
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # Enable cache only if a lockfile exists to avoid warnings/failures
-          cache: pnpm
-          cache-dependency-path: ${{ steps.detect.outputs.lockfile }}
 
       - name: Install dependencies
-        run: pnpm install
+        run: npm i --no-audit --no-fund
         working-directory: ${{ steps.detect.outputs.workdir }}
 
       - name: Verify Next config (debug)
@@ -73,12 +62,11 @@ jobs:
       - name: Build & export static site
         run: |
           set -euxo pipefail
-          pnpm build
-          pnpm exec next export -o out
-          cp out/index.html out/404.html
-          touch out/.nojekyll
-          echo "Export produced:"
-          ls -la out
+          npx next build
+          npx next export -o out
+          cp out/index.html out/404.html        # SPA fallback
+          touch out/.nojekyll                   # allow /_next on GH Pages
+          echo "Export produced:"; ls -la out
         working-directory: ${{ steps.detect.outputs.workdir }}
 
       - name: Upload artifact
