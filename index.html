@@ -71,6 +71,8 @@
     <div class="wrap">
       <div class="brand">StatsDonkey</div>
       <div class="spacer"></div>
+      <button id="btn-pull" class="btn outline small" type="button" title="Pull from cloud">Pull</button>
+      <button id="btn-push" class="btn outline small" type="button" title="Push to cloud">Push</button>
       <label class="small" title="Turn on to sync to your cloud API"><input type="checkbox" id="cloud-sync"> Cloud Sync</label>
       <button id="btn-logout" class="btn outline small hidden" type="button">Logout</button>
     </div>
@@ -80,11 +82,10 @@
     <!-- LOGIN -->
     <section id="view-login" class="card">
       <h1>Sign in</h1>
-      <p class="small">Demo login: <b>Argos / 1234</b> (prototype only).</p>
+      <p class="small">Demo login: <b>Argos / 1234</b></p>
       <div class="row">
         <input id="login-user" class="input" placeholder="Username" value="Argos" style="max-width:280px"/>
         <input id="login-pass" class="input" placeholder="Password" type="password" value="1234" style="max-width:280px"/>
-        <!-- inline onclick ensures click works even if listener attachment fails -->
         <button id="btn-login" class="btn" type="button" onclick="onLogin()">Login</button>
       </div>
       <div id="login-error" class="error hidden">Invalid credentials.</div>
@@ -164,7 +165,7 @@
         <button id="btn-sch-add" class="btn" type="button">Add game</button>
         <span class="small" id="schedule-hint"></span>
       </div>
-      <p class="small">Games only display in the Calendar below (not in this section).</p>
+      <p class="small">Games only display in the Calendar below.</p>
     </section>
 
     <!-- CALENDAR -->
@@ -190,9 +191,13 @@
   <div id="debug">status: <span id="dbg-status">boot</span></div>
 
   <script>
- const API_BASE = "https://statsdonkey.vercel.app/api";
+  // ====== SET YOUR API URL (Vercel) ======
+  const API_BASE = "https://statsdonkey.vercel.app/api";
 
-  // ====== Helpers / Storage Guards ======
+  // ====== Fixed shared team (no Team Key UI) ======
+  const TEAM_NAME = "Argos";
+
+  // ====== Helpers / Storage ======
   const safeClone = (obj) => { try { return structuredClone(obj); } catch { try { return JSON.parse(JSON.stringify(obj)); } catch { return obj; } } };
   const storage = {
     get(k){ try { return localStorage.getItem(k); } catch { return null; } },
@@ -210,7 +215,7 @@
   const AUTH_KEY = 'sd_auth_v1';
   const DATA_KEY = 'sd_data_v1';
   const defaultUser = { username: 'Argos', password: '1234' };
-  const defaultData = { team: { name: 'Argos', logo: '' }, roster: [], schedule: [], stats: {} };
+  const defaultData = { team: { name: TEAM_NAME, logo: '' }, roster: [], schedule: [], stats: {} };
 
   function loadAuth(){ try{ const raw = storage.get(AUTH_KEY); return raw ? JSON.parse(raw) : null; }catch{return null;} }
   function saveAuth(o){ storage.set(AUTH_KEY, JSON.stringify(o)); }
@@ -218,27 +223,32 @@
   function loadData(){ try{ const raw = storage.get(DATA_KEY); return raw ? JSON.parse(raw) : safeClone(defaultData);}catch{return safeClone(defaultData);} }
   function saveData(d){ storage.set(DATA_KEY, JSON.stringify(d)); trySync(d); }
 
-  // ====== API helpers (graceful if API_BASE is empty) ======
+  // ====== API helpers ======
   async function apiGet(path){
-    if(!API_BASE) return { ok:false };
     try { const r = await fetch(API_BASE + path); return { ok:r.ok, json: r.ok ? await r.json() : null }; }
     catch { return { ok:false }; }
   }
   async function apiPost(path, body){
-    if(!API_BASE) return { ok:false };
     try { const r = await fetch(API_BASE + path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       return { ok:r.ok, json: r.ok ? await r.json() : null };
     } catch { return { ok:false }; }
   }
 
+  function isCloudOn(){ return storage.get('sd_cloud_sync') === '1'; }
+
   async function trySync(payload){
-    const enabled = storage.get('sd_cloud_sync') === '1';
-    if (!enabled) return;
-    await apiPost('/team', { data: payload });
+    if (!isCloudOn()) return;
+    const data = safeClone(payload) || {};
+    data.team = data.team || {};
+    data.team.name = TEAM_NAME; // force single shared doc
+    await apiPost('/team', { data });
+    setDbg('pushed:'+TEAM_NAME);
   }
-  async function loadFromCloud(teamName){
-    const r = await apiGet('/team?name=' + encodeURIComponent(teamName || 'Argos'));
-    return r.ok ? r.json : null;
+  async function loadFromCloud(){
+    const r = await apiGet('/team?name=' + encodeURIComponent(TEAM_NAME));
+    if(r.ok && r.json){ setDbg('pulled:'+TEAM_NAME); return r.json; }
+    setDbg('pull-failed');
+    return null;
   }
   async function getPlayerPublicById(id){
     const r = await apiGet('/player?id=' + encodeURIComponent(id));
@@ -249,8 +259,7 @@
     return r.ok ? r.json : [];
   }
   async function upsertPlayerPublic(pub){
-    const enabled = storage.get('sd_cloud_sync') === '1';
-    if (!enabled) return;
+    if (!isCloudOn()) return;
     await apiPost('/player', pub);
   }
 
@@ -275,7 +284,8 @@
     const im = $('#logo-preview'); if(im){ im.src = d.team.logo || ''; im.style.display = d.team.logo ? 'block':'none'; }
   }
   function onSaveTeam(){
-    const d = loadData(); d.team.name = $('#team-name').value.trim() || 'Team'; saveData(d); alert('Team profile saved');
+    const d = loadData(); d.team.name = TEAM_NAME; // lock to shared team
+    saveData(d); alert('Team profile saved');
   }
   function onLogoUpload(ev){
     const f = ev.target.files && ev.target.files[0]; if (!f) return;
@@ -386,7 +396,7 @@
     const p = readPlayerForm();
     if(!p.first || !p.last) return alert('First and Last name are required');
     const d = loadData();
-    // duplicate rule: same first+last (case-insensitive) and same DOB
+    // prevent duplicate: same name + DOB
     const dup = d.roster.find(x => x.id !== p.id && x.dob && p.dob &&
       x.first.toLowerCase() === p.first.toLowerCase() &&
       x.last.toLowerCase() === p.last.toLowerCase() &&
@@ -403,7 +413,7 @@
     writePlayerForm(p); window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  // ID lookup & name search with cloud fallback
+  // ====== Search & Lookup ======
   let searchTimer=null;
   function onLookupIdInput(){
     const id = $('#pf-lookup-id').value.trim(); if(!id) return;
@@ -420,7 +430,6 @@
       let results = [];
       try{ results = await searchPlayersByName(q); }catch{}
       if(!results || !results.length){
-        // local fallback
         const d = loadData();
         results = d.roster.filter(p => (`${p.first} ${p.last}`).toLowerCase().includes(q.toLowerCase()))
           .map(p => ({ id:p.id, first:p.first, last:p.last, number:p.number||'', positions:p.positions||[], spnRank:p.spnRank||'', nsaRank:p.nsaRank||'' }));
@@ -436,7 +445,7 @@
     },250);
   }
 
-  // ====== Scheduler (form-only → calendar) ======
+  // ====== Scheduler ======
   function onScheduleAdd(){
     const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
     const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
@@ -452,7 +461,6 @@
   let currentSortKey='Player', currentSortDir='asc';
   function computeStats(){
     const d=loadData();
-    // Placeholder stats; wire real game/AB events later
     return d.roster.map(p => ({ Player:`${p.first} ${p.last}`.trim(), PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, AVG:'0.000', OBP:'0.000', SLG:'0.000', OPS:'0.000' }));
   }
   function renderStatsTable(){
@@ -511,12 +519,12 @@
       return;
     }
     hide($('#view-login')); show($('#btn-logout'));
+
     // stacked sections
     show($('#sec-team')); show($('#sec-roster')); show($('#sec-player')); show($('#sec-schedule')); show($('#sec-calendar')); show($('#sec-stats'));
 
-    // hydrate from cloud (replace local) if API is configured
-    const currentTeamName = (loadData().team && loadData().team.name) || "Argos";
-    loadFromCloud(currentTeamName).then(remote=>{
+    // hydrate from cloud (replace local)
+    loadFromCloud().then(remote=>{
       if(remote){
         storage.set(DATA_KEY, JSON.stringify(remote));
         initTeam(); renderRosterTable(); renderStatsTable(); renderCalendar();
@@ -525,6 +533,8 @@
 
     // initial render
     initTeam(); renderRosterTable(); renderStatsTable(); renderCalendar();
+    // default Cloud ON if not set yet
+    if(storage.get('sd_cloud_sync') === null){ storage.set('sd_cloud_sync','1'); }
     $('#cloud-sync').checked = (storage.get('sd_cloud_sync') === '1');
     setDbg('authed-view');
   }
@@ -532,8 +542,17 @@
   // ====== Wire up ======
   (function boot(){
     try{
+      // auth + top controls
       $('#btn-login').addEventListener('click', onLogin);
       $('#btn-logout').addEventListener('click', onLogout);
+      $('#btn-pull').addEventListener('click', async ()=>{ const r = await loadFromCloud(); if(r){ storage.set(DATA_KEY, JSON.stringify(r)); initTeam(); renderRosterTable(); renderStatsTable(); renderCalendar(); }});
+      $('#btn-push').addEventListener('click', ()=> trySync(loadData()));
+      $('#cloud-sync').addEventListener('change', e => {
+        storage.set('sd_cloud_sync', e.target.checked ? '1' : '0');
+        if(e.target.checked) trySync(loadData());
+      });
+
+      // sections
       $('#btn-save-team').addEventListener('click', onSaveTeam);
       $('#team-logo').addEventListener('change', onLogoUpload);
       $('#btn-roster-upload').addEventListener('click', onRosterUpload);
@@ -545,10 +564,7 @@
       $('#btn-sch-add').addEventListener('click', onScheduleAdd);
       $('#prev-month').addEventListener('click', ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); });
       $('#next-month').addEventListener('click', ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); });
-      $('#cloud-sync').addEventListener('change', e => {
-        storage.set('sd_cloud_sync', e.target.checked ? '1' : '0');
-        if(e.target.checked) trySync(loadData());
-      });
+
       route();
     }catch(e){
       setDbg('boot-error: '+e.message);
