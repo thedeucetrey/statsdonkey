@@ -18,36 +18,73 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_ENV: production
-      # TODO: update when your API is hosted somewhere public:
+      # Set this to your real API later (Render/Railway/etc.)
       NEXT_PUBLIC_API_BASE: https://example.com
-    steps:
-      - uses: actions/checkout@v4
+      NEXT_TELEMETRY_DISABLED: 1
 
-      # Install PNPM (no lockfile required)
-      - uses: pnpm/action-setup@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show repo layout (debug)
+        run: |
+          echo "=== repo root ==="
+          ls -la
+          echo "=== apps/web (if exists) ==="
+          ls -la apps/web || true
+
+      - name: Detect working directory
+        id: detect
+        run: |
+          if [ -f "package.json" ]; then
+            echo "workdir=." >> $GITHUB_OUTPUT
+            echo "lockfile=$( [ -f pnpm-lock.yaml ] && echo pnpm-lock.yaml || echo )" >> $GITHUB_OUTPUT
+            echo "Detected root package.json"
+          elif [ -f "apps/web/package.json" ]; then
+            echo "workdir=apps/web" >> $GITHUB_OUTPUT
+            echo "lockfile=$( [ -f apps/web/pnpm-lock.yaml ] && echo apps/web/pnpm-lock.yaml || echo )" >> $GITHUB_OUTPUT
+            echo "Detected apps/web package.json"
+          else
+            echo "No package.json found at repo root or apps/web"; exit 1;
+          fi
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
         with: { version: 9 }
 
-      # Install Node (no cache)
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
+          # Enable cache only if a lockfile exists to avoid warnings/failures
+          cache: pnpm
+          cache-dependency-path: ${{ steps.detect.outputs.lockfile }}
 
-      # Install workspace deps
-      - run: pnpm install
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: ${{ steps.detect.outputs.workdir }}
 
-      # Build & export Next app
-      - name: Build & export Next (apps/web)
-        working-directory: apps/web
+      - name: Verify Next config (debug)
         run: |
+          echo "Contents of next.config.mjs (if present):"
+          cat next.config.mjs || true
+        working-directory: ${{ steps.detect.outputs.workdir }}
+
+      - name: Build & export static site
+        run: |
+          set -euxo pipefail
           pnpm build
           pnpm exec next export -o out
           cp out/index.html out/404.html
           touch out/.nojekyll
+          echo "Export produced:"
+          ls -la out
+        working-directory: ${{ steps.detect.outputs.workdir }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/web/out
+          path: ${{ steps.detect.outputs.workdir }}/out
 
   deploy:
     needs: build
@@ -58,4 +95,3 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-
