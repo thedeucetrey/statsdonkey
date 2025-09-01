@@ -1,14 +1,10 @@
-// statsdonkey/api/debug.js
 const clientPromise = require('./_mongo');
+const { cors } = require('./_util');
 
 module.exports = async (req, res) => {
-  // CORS (debug: allow all so you can hit from anywhere)
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  cors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  // Safely summarize env vars (no secrets exposed)
   const raw = (process.env.MONGODB_URI || '').trim();
   const dbName = (process.env.DB_NAME || '').trim();
 
@@ -16,11 +12,11 @@ module.exports = async (req, res) => {
   try {
     const u = new URL(raw);
     parsed = {
-      protocol: u.protocol,                // should be "mongodb+srv:"
-      host: u.host,                        // e.g., "thedeucetrey.fk0rckg.mongodb.net"
+      protocol: u.protocol,
+      host: u.host,
       username: decodeURIComponent(u.username || ''),
       passwordPresent: !!u.password,
-      pathname: u.pathname,                // usually "/"
+      pathname: u.pathname,
       searchParams: {
         retryWrites: u.searchParams.get('retryWrites'),
         w: u.searchParams.get('w'),
@@ -37,7 +33,6 @@ module.exports = async (req, res) => {
     url: parsed
   };
 
-  // Try a real connection/ping
   try {
     const client = await clientPromise;
     await client.db('admin').command({ ping: 1 });
@@ -53,3 +48,4 @@ module.exports = async (req, res) => {
     });
   }
 };
+
