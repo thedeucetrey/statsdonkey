@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>StatsDonkey</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav>
+    <div class="wrap">
+      <div class="brand">StatsDonkey</div>
+      <a class="link" href="calendar.html">Calendar</a>
+      <div class="spacer"></div>
+      <label class="toggle small"><input type="checkbox" id="cloud-sync"> Cloud Sync</label>
+      <button id="btn-logout" class="btn outline hidden">Logout</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- LOGIN -->
+    <section id="view-login" class="card">
+      <h1>Sign in</h1>
+      <p class="small">Demo login is hardcoded: <b>Argos / 1234</b> (prototype only).</p>
+      <div class="grid2">
+        <input id="login-user" class="input" placeholder="Username" value="Argos"/>
+        <input id="login-pass" class="input" placeholder="Password" type="password" value="1234"/>
+      </div>
+      <button id="btn-login" class="btn">Login</button>
+      <div id="login-error" class="error hidden">Invalid credentials.</div>
+    </section>
+
+    <!-- TEAM PROFILE + ROSTER -->
+    <section id="view-team" class="hidden">
+      <div class="grid2">
+        <div class="card">
+          <h2>Team profile</h2>
+          <label>Team name</label>
+          <input id="team-name" class="input" placeholder="Team name"/>
+          <label>Logo upload</label>
+          <input id="team-logo" type="file" accept="image/*" class="input"/>
+          <div class="logo-preview"><img id="logo-preview" alt="logo preview" /></div>
+          <button id="btn-save-team" class="btn">Save profile</button>
+        </div>
+
+        <div class="card">
+          <h2>Roster upload (CSV)</h2>
+          <p class="small">CSV headers: <code>first,last,number,positions</code></p>
+          <div class="grid2">
+            <input id="roster-file" type="file" accept=".csv" class="input"/>
+            <button id="btn-roster-upload" class="btn">Upload</button>
+          </div>
+          <button id="btn-roster-template" class="btn outline">Download CSV template</button>
+          <div id="roster-count" class="small"></div>
+          <div class="scroll"><table class="table" id="tbl-roster"></table></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h2>Scheduler (form)</h2>
+          <div class="grid2">
+            <div>
+              <label>Date</label>
+              <input id="sch-date" class="input" type="date"/>
+            </div>
+            <div>
+              <label>Time</label>
+              <input id="sch-time" class="input" type="time"/>
+            </div>
+          </div>
+          <div class="grid2">
+            <div>
+              <label>Field</label>
+              <input id="sch-field" class="input" placeholder="Field 3"/>
+            </div>
+            <div>
+              <label>League/Tournament</label>
+              <input id="sch-comp" class="input" placeholder="Summer League / Tournament X"/>
+            </div>
+          </div>
+          <div class="grid2">
+            <div>
+              <label>Home team</label>
+              <input id="sch-home" class="input" placeholder="Argos"/>
+            </div>
+            <div>
+              <label>Away team</label>
+              <input id="sch-away" class="input" placeholder="Opponents"/>
+            </div>
+          </div>
+          <button id="btn-sch-add" class="btn">Add game</button>
+          <a href="calendar.html" class="btn outline">Open Calendar</a>
+          <div id="schedule-count" class="small"></div>
+          <div class="scroll"><table class="table" id="tbl-schedule"></table></div>
+        </div>
+
+        <div class="card">
+          <h2>Player stats (sortable)</h2>
+          <p class="small">Click a column to sort. This is scrollable now.</p>
+          <div class="scroll"><table class="table sortable" id="tbl-stats"></table></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="sync.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
