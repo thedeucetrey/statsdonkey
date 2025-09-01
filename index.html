@@ -56,6 +56,8 @@
       .cell{min-height:68px}
       .cell .events li{font-size:11px}
     }
+    /* debug badge */
+    #debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;color:#cbd5e1;opacity:.9}
   </style>
 </head>
 <body>
@@ -64,7 +66,7 @@
       <div class="brand">StatsDonkey</div>
       <div class="spacer"></div>
       <label class="small"><input type="checkbox" id="cloud-sync"> Cloud Sync</label>
-      <button id="btn-logout" class="btn outline small hidden">Logout</button>
+      <button id="btn-logout" class="btn outline small hidden" type="button">Logout</button>
     </div>
   </nav>
 
@@ -76,7 +78,8 @@
       <div class="row">
         <input id="login-user" class="input" placeholder="Username" value="Argos" style="max-width:280px"/>
         <input id="login-pass" class="input" placeholder="Password" type="password" value="1234" style="max-width:280px"/>
-        <button id="btn-login" class="btn">Login</button>
+        <!-- inline onclick ensures click works even if listener attachment fails -->
+        <button id="btn-login" class="btn" type="button" onclick="onLogin()">Login</button>
       </div>
       <div id="login-error" class="error hidden">Invalid credentials.</div>
     </section>
@@ -87,7 +90,7 @@
       <div class="row">
         <input id="team-name" class="input" placeholder="Team name" style="min-width:260px"/>
         <input id="team-logo" type="file" accept="image/*" class="input" style="min-width:260px"/>
-        <button id="btn-save-team" class="btn">Save profile</button>
+        <button id="btn-save-team" class="btn" type="button">Save profile</button>
       </div>
       <div class="logo-preview" style="margin-top:8px"><img id="logo-preview" alt="logo preview"/></div>
     </section>
@@ -98,8 +101,8 @@
       <p class="small">CSV headers: <code>first,last,number,positions</code></p>
       <div class="row">
         <input id="roster-file" type="file" accept=".csv" class="input" style="max-width:420px"/>
-        <button id="btn-roster-upload" class="btn">Upload</button>
-        <button id="btn-roster-template" class="btn outline">CSV template</button>
+        <button id="btn-roster-upload" class="btn" type="button">Upload</button>
+        <button id="btn-roster-template" class="btn outline" type="button">CSV template</button>
       </div>
       <div id="roster-count" class="small" style="margin-top:6px"></div>
       <div class="scroll roster">
@@ -134,8 +137,8 @@
       </div>
       <div class="row">
         <input id="pf-id" class="input" placeholder="Player ID (auto if blank)" style="min-width:240px"/>
-        <button id="btn-save-player" class="btn">Save Player</button>
-        <button id="btn-clear-player" class="btn ghost">Clear</button>
+        <button id="btn-save-player" class="btn" type="button">Save Player</button>
+        <button id="btn-clear-player" class="btn ghost" type="button">Clear</button>
       </div>
       <p class="small">Privacy: Phone, email, address, DOB are stored locally only; public directory includes just name, positions, number, ranks, and Player ID.</p>
     </section>
@@ -152,7 +155,7 @@
       <div class="row">
         <input id="sch-home" class="input" placeholder="Home team" style="min-width:200px"/>
         <input id="sch-away" class="input" placeholder="Away team" style="min-width:200px"/>
-        <button id="btn-sch-add" class="btn">Add game</button>
+        <button id="btn-sch-add" class="btn" type="button">Add game</button>
         <span class="small" id="schedule-hint"></span>
       </div>
       <p class="small">Games only display in the Calendar below (not in this section).</p>
@@ -162,9 +165,9 @@
     <section id="sec-calendar" class="card hidden">
       <h2>5) Calendar</h2>
       <div class="cal-header">
-        <button id="prev-month" class="btn outline small">◀</button>
+        <button id="prev-month" class="btn outline small" type="button">◀</button>
         <h3 id="cal-title" style="margin:0 10px"></h3>
-        <button id="next-month" class="btn outline small">▶</button>
+        <button id="next-month" class="btn outline small" type="button">▶</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
     </section>
@@ -178,9 +181,35 @@
     </section>
   </main>
 
+  <div id="debug">status: <span id="dbg-status">boot</span></div>
+
   <script>
+  // ====== Polyfills & helpers ======
+  const safeClone = (obj) => {
+    try { return structuredClone(obj); } catch(e) {
+      try { return JSON.parse(JSON.stringify(obj)); } catch(e2){ return obj; }
+    }
+  };
+  const storage = {
+    get(key){
+      try { return localStorage.getItem(key); } catch(e){ console.warn('localStorage.get error', e); return null; }
+    },
+    set(key, val){
+      try { localStorage.setItem(key, val); } catch(e){ console.warn('localStorage.set error', e); }
+    },
+    remove(key){
+      try { localStorage.removeItem(key); } catch(e){ console.warn('localStorage.remove error', e); }
+    }
+  };
+  function setDbg(s){ const el=document.getElementById('dbg-status'); if(el) el.textContent=String(s); }
+
+  // Show JS errors on the page (helps if login seems dead)
+  window.onerror = function(msg, src, line, col, err){
+    setDbg('error: ' + msg);
+  };
+
   // ====== Config ======
-  const SYNC_ENDPOINT = ""; // e.g., "https://your-worker.workers.dev"
+  const SYNC_ENDPOINT = ""; // optional future proxy
 
   // ====== Local & auth ======
   const AUTH_KEY = 'sd_auth_v1';
@@ -190,60 +219,33 @@
 
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
-  function show(e){ e.classList.remove('hidden'); }
-  function hide(e){ e.classList.add('hidden'); }
-  function loadAuth(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)) || null; }catch{return null;} }
-  function saveAuth(o){ localStorage.setItem(AUTH_KEY, JSON.stringify(o)); }
-  function clearAuth(){ localStorage.removeItem(AUTH_KEY); }
-  function loadData(){ try{ return JSON.parse(localStorage.getItem(DATA_KEY)) || structuredClone(defaultData);}catch{return structuredClone(defaultData);} }
-  function saveData(d){ localStorage.setItem(DATA_KEY, JSON.stringify(d)); trySync(d); }
-  function formatDate(s){ try{ return new Date(s + 'T00:00:00').toLocaleDateString(); }catch{return s;} }
-
-  // ====== Cloud sync (safe) ======
-  async function trySync(payload){
-    const enabled = localStorage.getItem('sd_cloud_sync') === '1';
-    if (!enabled || !SYNC_ENDPOINT) return;
-    try {
-      await fetch(SYNC_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type:'fullReplace', data: payload }) });
-    } catch(e){ console.warn('Sync failed:', e); }
-  }
-  async function upsertPlayerPublic(pub){
-    const enabled = localStorage.getItem('sd_cloud_sync') === '1';
-    if (!enabled || !SYNC_ENDPOINT) return;
-    try {
-      await fetch(SYNC_ENDPOINT + '?type=upsertPlayerPublic', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(pub) });
-    } catch(e){ console.warn('Upsert public failed:', e); }
-  }
-  async function getPlayerPublicById(id){
-    if (!SYNC_ENDPOINT) return null;
-    const r = await fetch(SYNC_ENDPOINT + '?type=getPlayerPublicById&id=' + encodeURIComponent(id));
-    if (!r.ok) return null;
-    return await r.json();
-  }
-  async function searchPlayersByName(q){
-    if (!SYNC_ENDPOINT) return [];
-    const r = await fetch(SYNC_ENDPOINT + '?type=searchPlayersByName&q=' + encodeURIComponent(q));
-    if (!r.ok) return [];
-    return await r.json();
-  }
+  function show(e){ e && e.classList.remove('hidden'); }
+  function hide(e){ e && e.classList.add('hidden'); }
+  function loadAuth(){ try{ const raw = storage.get(AUTH_KEY); return raw ? JSON.parse(raw) : null; }catch{return null;} }
+  function saveAuth(o){ storage.set(AUTH_KEY, JSON.stringify(o)); }
+  function clearAuth(){ storage.remove(AUTH_KEY); }
+  function loadData(){ try{ const raw = storage.get(DATA_KEY); return raw ? JSON.parse(raw) : safeClone(defaultData);}catch{return safeClone(defaultData);} }
+  function saveData(d){ storage.set(DATA_KEY, JSON.stringify(d)); }
 
   // ====== Login ======
   function onLogin(){
+    setDbg('login-click');
     const u = $('#login-user').value.trim();
     const p = $('#login-pass').value;
     if (u === defaultUser.username && p === defaultUser.password){
       saveAuth({ user:u, at:Date.now() });
       $('#login-error').classList.add('hidden');
       route();
-    } else { $('#login-error').classList.remove('hidden'); }
+      setDbg('authed-view');
+    } else { $('#login-error').classList.remove('hidden'); setDbg('bad-credentials'); }
   }
-  function onLogout(){ clearAuth(); route(); }
+  function onLogout(){ clearAuth(); route(); setDbg('logged-out'); }
 
   // ====== Team profile ======
   function initTeam(){
     const d = loadData();
     $('#team-name').value = d.team.name || '';
-    const im = $('#logo-preview'); im.src = d.team.logo || ''; im.style.display = d.team.logo ? 'block':'none';
+    const im = $('#logo-preview'); if(im){ im.src = d.team.logo || ''; im.style.display = d.team.logo ? 'block':'none'; }
   }
   function onSaveTeam(){
     const d = loadData(); d.team.name = $('#team-name').value.trim() || 'Team'; saveData(d); alert('Team profile saved');
@@ -261,12 +263,12 @@
     while(i<t.length){
       const c=t[i];
       if(inQ){
-        if(c==='"'){ if(t[i+1]==='"'){ field+='"'; i+=2;} else{ inQ=false; i++; } }
+        if(c==='\"'){ if(t[i+1]==='\"'){ field+='\"'; i+=2;} else{ inQ=false; i++; } }
         else{ field+=c; i++; }
       } else {
-        if(c==='"'){ inQ=true; i++; }
+        if(c==='\"'){ inQ=true; i++; }
         else if(c===','){ row.push(field.trim()); field=''; i++; }
-        else if(c==='\n' || c==='\r'){ if(field.length||row.length){ row.push(field.trim()); rows.push(row); } field=''; row=[]; if(c==='\r'&&t[i+1]==='\n') i+=2; else i++; }
+        else if(c==='\\n' || c==='\\r'){ if(field.length||row.length){ row.push(field.trim()); rows.push(row); } field=''; row=[]; if(c==='\\r'&&t[i+1]==='\\n') i+=2; else i++; }
         else{ field+=c; i++; }
       }
     }
@@ -294,11 +296,10 @@
       const d = loadData();
       for(const it of items){
         const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
-        const positions = (it.positions || '').split(/\s*,\s*/).filter(Boolean);
+        const positions = (it.positions || '').split(/\\s*,\\s*/).filter(Boolean);
         d.roster.push({ id, first:it.first||'', last:it.last||'', number: it.number?Number(it.number):undefined, positions,
           dob:'', phone:'', email:'', address:'', spnRank:'', nsaRank:''
         });
-        upsertPlayerPublic({ id, first:it.first||'', last:it.last||'', number: it.number||'', positions, spnRank:'', nsaRank:'' });
       }
       saveData(d); renderRosterTable(); renderStatsTable();
     };
@@ -306,21 +307,21 @@
   }
   function renderRosterTable(){
     const d = loadData();
+    const rows = d.roster.map(p => `<tr>
+      <td>${p.first} ${p.last}</td>
+      <td>${p.number||''}</td>
+      <td>${(p.positions||[]).join(', ')}</td>
+      <td>${p.spnRank||''}</td>
+      <td>${p.nsaRank||''}</td>
+      <td class="small">${p.id}</td>
+      <td><button class="btn outline small" data-edit="${p.id}" type="button">Edit</button></td>
+    </tr>`).join('');
     $('#roster-count').textContent = d.roster.length ? (d.roster.length + ' players'): 'No players yet';
-    const rows = d.roster.map(p => \`<tr>
-      <td>\${p.first} \${p.last}</td>
-      <td>\${p.number||''}</td>
-      <td>\${(p.positions||[]).join(', ')}</td>
-      <td>\${p.spnRank||''}</td>
-      <td>\${p.nsaRank||''}</td>
-      <td class="small">\${p.id}</td>
-      <td><button class="btn outline small" data-edit="\${p.id}">Edit</button></td>
-    </tr>\`).join('');
     $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>SPN</th><th>NSA</th><th>ID</th><th></th></tr></thead><tbody>'+rows+'</tbody>';
     $$('#tbl-roster [data-edit]').forEach(b=>b.addEventListener('click',()=>editPlayer(b.getAttribute('data-edit'))));
   }
   function onRosterTemplate(){
-    downloadText('roster-template.csv','first,last,number,positions\nJane,Doe,12,"SS,3B"\nJohn,Smith,7,"OF"');
+    downloadText('roster-template.csv','first,last,number,positions\\nJane,Doe,12,"SS,3B"\\nJohn,Smith,7,"OF"');
   }
 
   // ====== Player form ======
@@ -329,7 +330,7 @@
       id: $('#pf-id').value.trim() || (crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
       first: $('#pf-first').value.trim(),
       last: $('#pf-last').value.trim(),
-      positions: $('#pf-pos').value.split(/\s*,\s*/).filter(Boolean),
+      positions: $('#pf-pos').value.split(/\\s*,\\s*/).filter(Boolean),
       number: $('#pf-num').value ? Number($('#pf-num').value) : undefined,
       dob: $('#pf-dob').value || '',
       phone: $('#pf-phone').value.trim(),
@@ -366,41 +367,11 @@
     const i = d.roster.findIndex(x=>x.id===p.id);
     if(i>=0) d.roster[i]=p; else d.roster.push(p);
     saveData(d); renderRosterTable(); renderStatsTable();
-    upsertPlayerPublic({ id:p.id, first:p.first, last:p.last, number:p.number||'', positions:p.positions||[], spnRank:p.spnRank||'', nsaRank:p.nsaRank||'' });
     alert('Player saved');
   }
   function editPlayer(id){
     const d = loadData(); const p = d.roster.find(x=>x.id===id); if(!p) return;
     writePlayerForm(p); window.scrollTo({top:0,behavior:'smooth'});
-  }
-  // ID lookup & name search
-  let searchTimer=null;
-  function onLookupIdInput(){
-    const id = $('#pf-lookup-id').value.trim(); if(!id) return;
-    getPlayerPublicById(id).then(pub=>{ if(!pub) return; writePlayerForm({ id:pub.id, first:pub.first, last:pub.last, positions:pub.positions||[], number:pub.number||'', spnRank:pub.spnRank||'', nsaRank:pub.nsaRank||'' }); });
-  }
-  function onNameSearchInput(){
-    const q = $('#pf-search').value.trim();
-    const box = $('#pf-suggest');
-    if(searchTimer) clearTimeout(searchTimer);
-    if(!q){ box.classList.add('hidden'); box.innerHTML=''; return; }
-    searchTimer = setTimeout(async ()=>{
-      let results = [];
-      try{ results = await searchPlayersByName(q); }catch{}
-      if(!results || !results.length){
-        const d = loadData();
-        results = d.roster.filter(p => (`${p.first} ${p.last}`).toLowerCase().includes(q.toLowerCase()))
-          .map(p => ({ id:p.id, first:p.first, last:p.last, number:p.number||'', positions:p.positions||[], spnRank:p.spnRank||'', nsaRank:p.nsaRank||'' }));
-      }
-      if(!results.length){ box.classList.add('hidden'); box.innerHTML=''; return; }
-      box.innerHTML = results.slice(0,10).map(r => `<div class="item" data-id="${r.id}">${r.first} ${r.last} ${r.number?('#'+r.number):''} — ${Array.isArray(r.positions)?r.positions.join(', '):''}</div>`).join('');
-      box.classList.remove('hidden');
-      $$('#pf-suggest .item').forEach(it => it.addEventListener('click',()=>{
-        const sel = results.find(r => r.id === it.getAttribute('data-id'));
-        if(sel) writePlayerForm({ id:sel.id, first:sel.first, last:sel.last, number:sel.number||'', positions:sel.positions||[], spnRank:sel.spnRank||'', nsaRank:sel.nsaRank||'' });
-        box.classList.add('hidden'); box.innerHTML='';
-      }));
-    },250);
   }
 
   // ====== Scheduler (form-only) ======
@@ -444,9 +415,9 @@
   function renderCalendar(){
     const d = loadData();
     const m0 = startOfMonth(calCurrent), m1 = endOfMonth(calCurrent);
-    $('#cal-title').textContent = m0.toLocaleString(undefined,{month:'long',year:'numeric'});
+    document.getElementById('cal-title').textContent = m0.toLocaleString(undefined,{month:'long',year:'numeric'});
     const first = m0.getDay(), days = m1.getDate();
-    const grid = $('#cal-grid'); grid.innerHTML='';
+    const grid = document.getElementById('cal-grid'); grid.innerHTML='';
     const daysHdr=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     for(const dd of daysHdr){ const h=document.createElement('div'); h.className='cell head'; h.textContent=dd; grid.appendChild(h); }
     for(let i=0;i<first;i++){ const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b); }
@@ -470,54 +441,51 @@
   function route(){
     const authed = !!loadAuth();
     if(!authed){
-      show($('#view-login'));
-      hide($('#sec-team')); hide($('#sec-roster')); hide($('#sec-player')); hide($('#sec-schedule')); hide($('#sec-calendar')); hide($('#sec-stats'));
-      hide($('#btn-logout'));
+      show(document.getElementById('view-login'));
+      hide(document.getElementById('sec-team')); hide(document.getElementById('sec-roster')); hide(document.getElementById('sec-player')); hide(document.getElementById('sec-schedule')); hide(document.getElementById('sec-calendar')); hide(document.getElementById('sec-stats'));
+      hide(document.getElementById('btn-logout'));
+      setDbg('login-view');
       return;
     }
-    hide($('#view-login')); show($('#btn-logout'));
+    hide(document.getElementById('view-login')); show(document.getElementById('btn-logout'));
     // stacked sections
-    show($('#sec-team')); show($('#sec-roster')); show($('#sec-player')); show($('#sec-schedule')); show($('#sec-calendar')); show($('#sec-stats'));
+    show(document.getElementById('sec-team')); show(document.getElementById('sec-roster')); show(document.getElementById('sec-player')); show(document.getElementById('sec-schedule')); show(document.getElementById('sec-calendar')); show(document.getElementById('sec-stats'));
     initTeam(); renderRosterTable(); renderStatsTable(); renderCalendar();
     // restore cloud sync toggle
-    $('#cloud-sync').checked = (localStorage.getItem('sd_cloud_sync') === '1');
+    document.getElementById('cloud-sync').checked = (storage.get('sd_cloud_sync') === '1');
+    setDbg('authed-view');
   }
 
   // ====== Wire up ======
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // login
-    $('#btn-login').addEventListener('click', onLogin);
-    $('#btn-logout').addEventListener('click', onLogout);
-
-    // team
-    $('#btn-save-team').addEventListener('click', onSaveTeam);
-    $('#team-logo').addEventListener('change', onLogoUpload);
-
-    // roster csv
-    $('#btn-roster-upload').addEventListener('click', onRosterUpload);
-    $('#btn-roster-template').addEventListener('click', onRosterTemplate);
-
-    // player form
-    $('#btn-save-player').addEventListener('click', onSavePlayer);
-    $('#btn-clear-player').addEventListener('click', clearPlayerForm);
-    $('#pf-lookup-id').addEventListener('input', onLookupIdInput);
-    $('#pf-search').addEventListener('input', onNameSearchInput);
-
-    // schedule
-    $('#btn-sch-add').addEventListener('click', onScheduleAdd);
-
-    // calendar nav
-    $('#prev-month').addEventListener('click', ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); });
-    $('#next-month').addEventListener('click', ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); });
-
-    // cloud sync toggle
-    $('#cloud-sync').addEventListener('change', e => {
-      localStorage.setItem('sd_cloud_sync', e.target.checked ? '1' : '0');
-      if(e.target.checked) trySync(loadData());
-    });
-
-    route();
-  });
+  (function boot(){
+    try{
+      document.getElementById('btn-login').addEventListener('click', onLogin);
+      document.getElementById('btn-logout').addEventListener('click', onLogout);
+      document.getElementById('btn-save-team').addEventListener('click', onSaveTeam);
+      document.getElementById('team-logo').addEventListener('change', onLogoUpload);
+      document.getElementById('btn-roster-upload').addEventListener('click', onRosterUpload);
+      document.getElementById('btn-roster-template').addEventListener('click', onRosterTemplate);
+      document.getElementById('btn-save-player').addEventListener('click', onSavePlayer);
+      document.getElementById('btn-clear-player').addEventListener('click', clearPlayerForm);
+      document.getElementById('sch-date'); // touch to ensure exists (no-op)
+      document.getElementById('btn-sch-add').addEventListener('click', onScheduleAdd);
+      document.getElementById('prev-month').addEventListener('click', ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); });
+      document.getElementById('next-month').addEventListener('click', ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); });
+      document.getElementById('cloud-sync').addEventListener('change', e => {
+        storage.set('sd_cloud_sync', e.target.checked ? '1' : '0');
+      });
+      route();
+    }catch(e){
+      setDbg('boot-error: '+e.message);
+    }
+  })();
   </script>
+
+  <noscript>
+    <div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
+      JavaScript is disabled. Enable it to use StatsDonkey.
+    </div>
+  </noscript>
 </body>
 </html>
+
