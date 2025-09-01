@@ -1,4 +1,4 @@
-// statsdonkey/api/_util.js
+// CORS + robust JSON body parsing
 module.exports.readJson = async function readJson(req) {
   if (req.body && typeof req.body === 'object') return req.body;
   return await new Promise(resolve => {
@@ -9,8 +9,10 @@ module.exports.readJson = async function readJson(req) {
     });
   });
 };
+
 module.exports.cors = function cors(res) {
-  // TEMP: allow all while debugging. When stable, change '*' to 'https://thedeucetrey.github.io'
+  // While debugging you can leave '*' here.
+  // When stable, change to 'https://thedeucetrey.github.io'.
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
