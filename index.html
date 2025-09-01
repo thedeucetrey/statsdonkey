@@ -190,9 +190,7 @@
   <div id="debug">status: <span id="dbg-status">boot</span></div>
 
   <script>
-  // ====== SET THIS when your API is live (Vercel URL) ======
-  // Example: const API_BASE = "https://statsdonkey-api.vercel.app/api";
-  const API_BASE = "";
+  const API_BASE = "https://statsdonkey-abc123.vercel.app/api";
 
   // ====== Helpers / Storage Guards ======
   const safeClone = (obj) => { try { return structuredClone(obj); } catch { try { return JSON.parse(JSON.stringify(obj)); } catch { return obj; } } };
