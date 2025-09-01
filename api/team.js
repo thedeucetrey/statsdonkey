@@ -1,4 +1,3 @@
-// statsdonkey/api/team.js
 const clientPromise = require('./_mongo');
 const { readJson, cors } = require('./_util');
 
@@ -16,7 +15,6 @@ module.exports = async (req, res) => {
       const name = (req.query && req.query.name) || 'Argos';
       const doc = await db.collection('teams').findOne({ name }, { projection: { _id: 0 } });
       if (doc) return res.status(200).json(doc);
-      // Return an empty doc if none exists yet
       return res.status(200).json({ team: { name }, roster: [], schedule: [], stats: {} });
     }
 
