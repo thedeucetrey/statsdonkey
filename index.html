@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R21</title>
+<title>StatsDonkey — R22</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -74,7 +74,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R21</span>
+    <span class="small">BUILD R22</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -113,6 +113,13 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       <div style="max-width:170px;flex:1 1 170px"><label for="pf-dob">DOB</label><input id="pf-dob" class="input" type="date" aria-label="DOB" placeholder="YYYY-MM-DD"></div>
       <div style="max-width:240px;flex:1 1 240px"><label for="pf-pos">Position(s)</label><input id="pf-pos" class="input" placeholder="e.g., SS, 3B, OF"></div>
       <div style="max-width:90px;flex:1 1 90px"><label for="pf-num">#</label><input id="pf-num" class="input" type="number" placeholder="#"></div>
+      <div style="max-width:140px;flex:1 1 140px"><label for="pf-bats">Bats</label>
+        <select id="pf-bats" class="input">
+          <option value="R">Right</option>
+          <option value="L">Left</option>
+          <option value="S">Switch</option>
+        </select>
+      </div>
     </div>
     <div class="row">
       <div style="max-width:180px;flex:1 1 180px"><label for="pf-nsa">NSA rank</label><input id="pf-nsa" class="input" placeholder="NSA"></div>
@@ -220,6 +227,13 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         <div class="row">
           <div style="max-width:260px;flex:1 1 260px"><label for="gm-opp-name">Name</label><input id="gm-opp-name" class="input" placeholder="Opponent name"></div>
           <div style="max-width:220px;flex:1 1 220px"><label for="gm-opp-add">Add player</label><input id="gm-opp-add" class="input" placeholder="First Last"></div>
+          <div style="max-width:140px;flex:1 1 140px"><label for="gm-opp-bats">Bats</label>
+            <select id="gm-opp-bats" class="input">
+              <option value="R">Right</option>
+              <option value="L">Left</option>
+              <option value="S">Switch</option>
+            </select>
+          </div>
           <button id="gm-btn-opp-add" class="btn" type="button" style="align-self:flex-end">Add</button>
         </div>
         <div class="row">
@@ -371,6 +385,12 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     return s;
   }
   const asArray = (x)=> Array.isArray(x) ? x : (x ? Object.values(x) : []);
+  const isHex64 = s => typeof s==='string' && /^[0-9a-f]{64}$/.test(s);
+
+  async function sha256Hex(str){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
 
   // ---------- State ----------
   let teamDocId = null, unsubTeam = null, unsubGame = null;
@@ -415,6 +435,14 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     }));
   }
 
+  // ---------- Player IDs ----------
+  async function pidFromNameDob(first,last,dob){
+    return sha256Hex(`${first.toLowerCase()}|${last.toLowerCase()}|${dob}`);
+  }
+  async function pidFromNameOnly(first,last){
+    return sha256Hex(`${first.toLowerCase()} ${last.toLowerCase()}|anon-v1`);
+  }
+
   // ---------- UI boot ----------
   (function initUI(){
     $('#btn-login').onclick = async ()=>{
@@ -423,8 +451,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const err = $('#login-error'); err.textContent='';
       if (!team || !pass){ err.textContent='Enter team and password.'; return; }
       try{
-        const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(team.toLowerCase().trim()+'|'+pass));
-        teamDocId = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+        const hash = await sha256Hex(team.toLowerCase().trim()+'|'+pass);
+        teamDocId = hash;
         await ensureTeamSeed(team);
         route(true); startTeamListener();
         setDbg('authless:ok'); setNav(`team: ${team} | games: 0 | roster: 0`);
@@ -453,10 +481,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const r = ev.currentTarget.getBoundingClientRect();
       pending.x = ((ev.clientX - r.left) / r.width).toFixed(3);
       pending.y = ((ev.clientY - r.top) / r.height).toFixed(3);
-      // Default result each click
       $('#md-result').value = '1B'; $('#md-hard').value='Medium';
       pending.result='1B'; pending.hard='Medium';
-      // Clear last pending placement preview
       pending.bases = { first:null, second:null, third:null }; pending.scored = [];
       renderBasesAndRunners(true);
       $('#modal').style.display='flex';
@@ -468,7 +494,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#md-save').onclick    = ()=> { savePlay(); $('#modal').style.display='none'; };
 
     $$('.base').forEach(b=>{ b.onclick = ()=> placeSelectedRunner(b.dataset.base); });
-    $('#gm-btn-opp-add').onclick = ()=> addOpponentPlayer($('#gm-opp-add').value.trim());
+    $('#gm-btn-opp-add').onclick = ()=> addOpponentPlayer($('#gm-opp-add').value.trim(), $('#gm-opp-bats').value);
     $('#gm-save-pregame').onclick = savePregame;
 
     // Team profile save + logo preview
@@ -524,29 +550,33 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const dob=$('#pf-dob').value; const positions=$('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
     const number=$('#pf-num').value?Number($('#pf-num').value):undefined;
     const nsa=$('#pf-nsa').value.trim(), spn=$('#pf-spn').value.trim();
+    const bats=$('#pf-bats').value || 'R';
     if(!first || !last || !dob){ $('#pf-err').textContent='First, Last, and DOB are required.'; return; }
     try{
-      const pid = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${first.toLowerCase()}|${last.toLowerCase()}|${dob}`))
-        .then(buf=>Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''));
+      const pid = await pidFromNameDob(first,last,dob);
       if ((data.roster||[]).some(r=>r.playerId===pid)){ $('#pf-err').textContent='Player already on this roster.'; return; }
       const pRef = doc(db,"players",pid); const pSnap=await getDoc(pRef);
       if (!pSnap.exists()){
         await setDoc(pRef,{
-          first,last,dob,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,ranks:{nsa,spn},
+          first,last,dob,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,bats,
+          ranks:{nsa,spn},
           stats:{PA:0,AB:0,H:0,"1B":0,"2B":0,"3B":0,HR:0,BB:0,K:0,AVG:"0.000",OBP:"0.000",SLG:"0.000",OPS:"0.000"},
           createdAt:new Date().toISOString()
         },{merge:true});
       }else{
-        const cur=pSnap.data()||{}; const ranks={...(cur.ranks||{})}; if(nsa)ranks.nsa=nsa; if(spn)ranks.spn=spn;
-        await setDoc(pRef,{ranks},{merge:true});
+        const cur=pSnap.data()||{};
+        const ranks={...(cur.ranks||{})}; if(nsa)ranks.nsa=nsa; if(spn)ranks.spn=spn;
+        await setDoc(pRef,{ranks,bats:bats||cur.bats||'R'},{merge:true});
       }
       playerCache.set(pid,(await getDoc(pRef)).data());
-      data.roster = [...(data.roster||[]), { playerId:pid, first,last,dob, number, positions, ranks:{nsa,spn} }];
+      data.roster = [...(data.roster||[]), { playerId:pid, first,last,dob, number, positions, ranks:{nsa,spn}, bats }];
       renderRoster();
       await saveTeamDoc({ roster: data.roster });
       ['pf-first','pf-last','pf-dob','pf-pos','pf-num','pf-nsa','pf-spn'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; });
+      $('#pf-bats').value='R';
     }catch(e){ console.error(e); $('#pf-err').textContent='Add failed.'; }
   }
+
   async function removeFromRoster(pid){
     if(!pid) return;
     if(!confirm('Remove this player from the team roster? This does not delete their global profile.')) return;
@@ -554,6 +584,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     renderRoster();
     await saveTeamDoc({ roster: data.roster });
   }
+
   async function onSearchPlayers(){
     const term=$('#srch-name').value.trim().toLowerCase(); const dob=$('#srch-dob').value; const out=$('#srch-results'); out.innerHTML='';
     if(!term){ out.textContent='Enter a name to search.'; return; }
@@ -569,7 +600,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         const already=(data.roster||[]).some(x=>x.playerId===r.id);
         li.innerHTML=`
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <div><b>${r.first||''} ${r.last||''}</b> — DOB: ${r.dob||''}</div>
+            <div><b>${r.first||''} ${r.last||''}</b> — DOB: ${r.dob||'—'} • Bats: ${r.bats||'R'}</div>
             <div class="small">NSA: ${r.ranks?.nsa||'-'} | SPN: ${r.ranks?.spn||'-'}</div>
             ${already?'<span class="small" style="color:#34d399">Already on roster</span>':'<button class="btn small" data-add="'+r.id+'">Add to team</button>'}
           </div>`;
@@ -581,7 +612,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           const pid=btn.getAttribute('data-add'); if((data.roster||[]).some(x=>x.playerId===pid)) return;
           const pSnap=await getDoc(doc(db,"players",pid)); if(!pSnap.exists()) return;
           const p=pSnap.data();
-          data.roster=[...(data.roster||[]), { playerId:pid, first:p.first||'', last:p.last||'', dob:p.dob||'', number:numDefault, positions:posDefault, ranks:{nsa:p.ranks?.nsa||'', spn:p.ranks?.spn||''} }];
+          data.roster=[...(data.roster||[]), { playerId:pid, first:p.first||'', last:p.last||'', dob:p.dob||'', number:numDefault, positions:posDefault, ranks:{nsa:p.ranks?.nsa||'', spn:p.ranks?.spn||''}, bats:p.bats||'R' }];
           renderRoster();
           await saveTeamDoc({ roster: data.roster });
           btn.replaceWith((()=>{const t=document.createElement('span'); t.className='small'; t.style.color='#34d399'; t.textContent='Added'; return t; })());
@@ -589,19 +620,21 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       });
     }catch(e){ console.error(e); out.textContent='Search failed.'; }
   }
+
   function renderRoster(){
     const rows=(data.roster||[]).map(p=>`<tr>
       <td>${p.first} ${p.last}</td>
       <td>${p.number||''}</td>
       <td>${(p.positions||[]).join(', ')}</td>
       <td>${p.dob||''}</td>
+      <td>${p.bats||'R'}</td>
       <td>${p.ranks?.nsa||''}</td>
       <td>${p.ranks?.spn||''}</td>
       <td class="small">${p.playerId}</td>
       <td><button class="btn outline small" data-del-pid="${p.playerId}">Remove</button></td>
     </tr>`).join('');
     $('#roster-count').textContent = data.roster?.length ? (data.roster.length + ' players') : 'No players';
-    $('#tbl-roster').innerHTML='<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>NSA</th><th>SPN</th><th>ID</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody>';
+    $('#tbl-roster').innerHTML='<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>Bats</th><th>NSA</th><th>SPN</th><th>ID</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody>';
     $$('#tbl-roster button[data-del-pid]').forEach(btn=>{
       btn.onclick = ()=> removeFromRoster(btn.getAttribute('data-del-pid'));
     });
@@ -615,7 +648,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const s = p.stats || {};
       const nm = `${r.first||''} ${r.last||''}`.trim();
       return `<tr>
-        <td>${nm}</td><td>${s.PA||0}</td><td>${s.AB||0}</td><td>${s.H||0}</td>
+        <td>${nm} <span class="small" style="opacity:.8">(${p.bats||r.bats||'R'})</span></td>
+        <td>${s.PA||0}</td><td>${s.AB||0}</td><td>${s.H||0}</td>
         <td>${s['1B']||0}</td><td>${s['2B']||0}</td><td>${s['3B']||0}</td>
         <td>${s.HR||0}</td><td>${s.BB||0}</td><td>${s.K||0}</td>
         <td>${s.AVG||'0.000'}</td><td>${s.OBP||'0.000'}</td><td>${s.SLG||'0.000'}</td><td>${s.OPS||'0.000'}</td>
@@ -775,12 +809,25 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   function startGameListener(gameId){
     stopGameListener();
     const ref=doc(db,"teams",teamDocId,"games",gameId);
-    unsubGame=onSnapshot(ref,snap=>{
+    unsubGame=onSnapshot(ref, async snap=>{
       if(!snap.exists()) return;
       currentGame=snap.data(); currentGameId=gameId;
       if (!currentGame.bases) currentGame.bases={ first:null, second:null, third:null };
+
+      // --- Migrate away.roster strings -> playerIds
+      if (Array.isArray(currentGame.away?.roster) && currentGame.away.roster.some(x=>typeof x==='string' && !isHex64(x))){
+        const names = currentGame.away.roster;
+        const ids = [];
+        for (const nm of names){
+          const pid = await ensureAnonPlayerFromFullname(nm, 'R'); // default R if unknown
+          ids.push(pid);
+        }
+        await setDoc(ref, { away:{ ...(currentGame.away||{}), roster: ids } }, {merge:true});
+        return; // next snapshot will render with IDs
+      }
+
       updateGameHeader();
-      renderPregameBuilders();
+      await renderPregameBuilders(); // ensure names loaded
       updateLiveViews();
     });
   }
@@ -796,6 +843,37 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   }
   function baseDefense(){
     const o={}; BASE_POSITIONS.forEach(p=>o[p]=null); return o;
+  }
+
+  // --------- Opponent helpers (global profiles by name) ---------
+  function splitFullname(fullname){
+    const parts = fullname.trim().split(/\s+/);
+    const first = parts.shift()||''; const last = parts.join(' ');
+    return {first, last};
+  }
+  async function ensureAnonPlayer(first,last,bats='R'){
+    const pid = await pidFromNameOnly(first,last);
+    if (!playerCache.has(pid)){
+      const ref=doc(db,"players",pid); const snap=await getDoc(ref);
+      if (!snap.exists()){
+        await setDoc(ref,{
+          first,last,dob:null,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,
+          bats:bats||'R', anon:true,
+          stats:{PA:0,AB:0,H:0,"1B":0,"2B":0,"3B":0,HR:0,BB:0,K:0,AVG:"0.000",OBP:"0.000",SLG:"0.000",OPS:"0.000"},
+          createdAt:new Date().toISOString()
+        });
+        playerCache.set(pid,{first,last,dob:null,bats:bats||'R',anon:true});
+      }else{
+        const d=snap.data(); playerCache.set(pid,d);
+        // If bats is supplied and missing in profile, set it
+        if (bats && !d.bats){ await setDoc(ref,{bats},{merge:true}); playerCache.set(pid,{...d,bats}); }
+      }
+    }
+    return pid;
+  }
+  async function ensureAnonPlayerFromFullname(fullname,bats='R'){
+    const {first,last}=splitFullname(fullname);
+    return ensureAnonPlayer(first,last,bats);
   }
 
   // Live helpers
@@ -817,11 +895,24 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-setup').classList.toggle('active', which==='setup');
     $('#gm-live').classList.toggle('active', which==='live');
   }
-  function renderPregameBuilders(){
+
+  async function renderPregameBuilders(){
     if(!currentGame) return;
     renderLineupBuilder('home', data.roster||[], 'gm-lineup-home');
     renderDefenseBuilder('home', data.roster||[], 'gm-defense-home');
-    const olist = (currentGame?.away?.roster||[]).map(n=>({first:n.split(' ')[0]||'',last:n.split(' ').slice(1).join(' ')||'',playerId:n}));
+
+    // away roster is array of playerIds; make rosterLike by fetching their profiles
+    const awayIds = Array.isArray(currentGame?.away?.roster) ? currentGame.away.roster : [];
+    const olist = [];
+    for (const id of awayIds){
+      if (!playerCache.has(id)){
+        const s=await getDoc(doc(db,"players",id));
+        if (s.exists()) playerCache.set(id,s.data());
+      }
+      const p=playerCache.get(id)||{};
+      olist.push({ first:p.first||'', last:p.last||'', playerId:id, bats:p.bats||'R' });
+    }
+
     renderLineupBuilder('away', olist, 'gm-lineup-away');
     renderDefenseBuilder('away', olist, 'gm-defense-away');
     $('#gm-opp-name').value = currentGame?.meta?.opponent || '';
@@ -846,7 +937,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
     };
 
-    // Spots
+    // Options from rosterLike
     const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
     for(let i=0;i<arr.length;i++){
       const wrap=document.createElement('div'); wrap.className='row';
@@ -881,13 +972,17 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     });
   }
 
-  async function addOpponentPlayer(fullname){
+  async function addOpponentPlayer(fullname, bats='R'){
     if(!currentGameId || !fullname) return;
-    const list=[...((currentGame?.away?.roster)||[])]; list.push(fullname);
+    const {first,last}=splitFullname(fullname);
+    const pid = await ensureAnonPlayer(first,last,bats);
+    const list=[...((currentGame?.away?.roster)||[])];
+    if (!list.includes(pid)) list.push(pid);
     await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { away:{ ...(currentGame?.away||{}), roster:list } }, {merge:true});
-    renderPregameBuilders();
+    await renderPregameBuilders();
     $('#gm-opp-add').value='';
   }
+
   async function savePregame(){
     if(!currentGameId) return;
     const opp = $('#gm-opp-name').value.trim() || currentGame?.meta?.opponent || 'Opponent';
@@ -912,29 +1007,26 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const arr = currentGame[side]?.lineup || [];
     arr.forEach(pid=>{
       const opt=document.createElement('option');
-      opt.value=pid; opt.textContent = (side==='home') ? getHomeName(pid) : getAwayName(pid);
+      opt.value=pid; opt.textContent = nameForId(pid);
       sel.appendChild(opt);
     });
     const idx = currentGame[side]?.batterIndex || 0;
     sel.selectedIndex = (arr.length? (idx%arr.length) : -1);
   }
-  async function advanceBatter(){
-    if(!currentGameId) return;
-    const side=$('#gm-sel-side').value;
-    const len = (currentGame?.[side]?.lineup||[]).length;
-    const next = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
-    await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
-  }
   function getHomeName(pid){
     const r=(data.roster||[]).find(x=>x.playerId===pid);
-    return r ? `${r.first||''} ${r.last||''}`.trim() : pid;
+    if (r) return `${r.first||''} ${r.last||''}`.trim();
+    const p=playerCache.get(pid); if (p) return `${p.first||''} ${p.last||''}`.trim();
+    return pid;
   }
   function getAwayName(pid){
+    const p=playerCache.get(pid); if (p) return `${p.first||''} ${p.last||''}`.trim();
     return String(pid||'').trim() || 'Player';
   }
   function nameForId(pid){
     const r=(data.roster||[]).find(x=>x.playerId===pid);
     if (r) return `${r.first||''} ${r.last||''}`.trim();
+    const p=playerCache.get(pid); if (p) return `${p.first||''} ${p.last||''}`.trim();
     return getAwayName(pid);
   }
 
