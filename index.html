@@ -5,19 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>StatsDonkey</title>
 <style>
-:root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--err:#f87171;--pad:14px;--rad:16px}
+:root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 .container{max-width:980px;margin:0 auto;padding:16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);padding:var(--pad);box-shadow:0 8px 24px rgba(0,0,0,.25);margin-bottom:var(--pad)}
-.hidden{display:none !important} .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hidden{display:none!important} .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .input,select{width:100%;background:#0b1220;color:var(--fg);border:1px solid #334155;border-radius:12px;padding:12px}
 .btn{background:var(--acc);color:#06220f;border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
-.btn.outline{background:transparent;color:var(--acc);border:1px solid var(--acc)} .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
-.btn.small{padding:8px 10px;font-size:12px} .small{font-size:12px;color:var(--mut)} .error{color:var(--err)}
-nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
-nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
-.brand{font-weight:800;color:var(--acc)} .spacer{flex:1}
-#debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
+.btn.outline{background:transparent;color:var(--acc);border:1px solid var(--acc)} .btn.small{padding:8px 10px;font-size:12px}
+.small{font-size:12px;color:var(--mut)}
 .table{width:100%;border-collapse:separate;border-spacing:0;margin-top:10px}
 .table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
 .table thead th{position:sticky;top:0;background:var(--card);z-index:1}
@@ -32,7 +28,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .cell .date{font-weight:800;color:#cbd5e1;margin-bottom:6px}
 .cell .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px}
-@media (max-width:740px){.container{padding:12px}.cell{min-height:68px}.cell .events li{font-size:11px}}
+nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
+.brand{font-weight:800;color:#4ade80} .spacer{flex:1}
+#debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
+@media (max-width:740px){.container{padding:12px}}
 </style>
 </head>
 <body>
@@ -40,24 +40,21 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <div class="wrap">
     <div class="brand">StatsDonkey</div>
     <div class="spacer"></div>
-    <input id="team-key" class="input" style="max-width:180px" placeholder="Team Key (e.g., Argos)"/>
-    <button id="btn-load" class="btn outline small" type="button">Load</button>
-    <button id="btn-save" class="btn outline small" type="button">Save</button>
     <button id="btn-logout" class="btn outline small hidden" type="button">Logout</button>
   </div>
 </nav>
 
 <main class="container">
-  <!-- LOGIN -->
+  <!-- LOGIN (team + password) -->
   <section id="view-login" class="card">
-    <h2>Sign in</h2>
-    <p class="small">Demo: <b>Argos / 1234</b></p>
+    <h2>Team Login</h2>
+    <p class="small">Example: <b>Argos</b> / <b>1234</b> (first login creates the team).</p>
     <div class="row">
-      <input id="login-user" class="input" placeholder="Username" value="Argos" style="max-width:240px"/>
-      <input id="login-pass" class="input" placeholder="Password" type="password" value="1234" style="max-width:240px"/>
-      <button id="btn-login" class="btn" type="button">Login</button>
+      <input id="team-key" class="input" placeholder="Team name (e.g., Argos)" autocomplete="off" autocapitalize="none" spellcheck="false" style="max-width:260px"/>
+      <input id="team-pass" class="input" type="password" placeholder="Team password" autocomplete="new-password" style="max-width:220px"/>
+      <button id="btn-login" class="btn" type="button">Log in</button>
     </div>
-    <div id="login-error" class="error hidden">Invalid credentials.</div>
+    <div id="login-error" class="small" style="color:#f87171;margin-top:6px"></div>
   </section>
 
   <!-- TEAM PROFILE -->
@@ -131,7 +128,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
 <div id="debug">status: <span id="dbg-status">boot</span></div>
 
-<!-- Firebase (client-only; no server needed) -->
+<!-- Firebase (no build, straight from CDN) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
@@ -158,69 +155,125 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
-// ==================
-
-const DEFAULT_TEAM = "Argos";
-const defaultUser = { username: 'Argos', password: '1234' };
+// ==============================================
 
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const setDbg = s => { const el = $('#dbg-status'); if (el) el.textContent = s; };
 
-let app, db, authed = false;
-let teamKey = DEFAULT_TEAM;
-let data = { team:{ name: DEFAULT_TEAM, logo:'' }, roster:[], schedule:[], stats:{} };
+let app, db, auth, unsub = null, uid = null;
+let data = { team:{ name:'', logo:'' }, roster:[], schedule:[], stats:{} };
 let calCurrent = new Date();
 
-// --- Firebase init (anon auth so rules can require a signed-in user)
+// --- Firebase init
 function initFirebase(){
   app = firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
-  firebase.auth().signInAnonymously().then(()=> setDbg('firebase: anon OK')).catch(e => setDbg('firebase auth err'));
+  auth = firebase.auth();
+  setDbg('firebase-ready');
 }
 
-// --- UI helpers
-function initUI(){
-  $('#team-key').value = teamKey;
+// --- Auth: team name + password -> email under the hood
+function teamEmail(team){ return (team || '').trim().toLowerCase() + '@teams.local'; }
 
-  // login
-  $('#btn-login').onclick = () => {
-    const u = $('#login-user').value.trim();
-    const p = $('#login-pass').value;
-    if (u === defaultUser.username && p === defaultUser.password){
-      authed = true;
-      $('#login-error').classList.add('hidden');
-      route();
-    } else {
-      $('#login-error').classList.remove('hidden');
+async function loginTeam(team, pass){
+  const email = teamEmail(team);
+  try{
+    const res = await auth.signInWithEmailAndPassword(email, pass);
+    return res.user;
+  }catch(e){
+    if (e.code === 'auth/user-not-found'){
+      const res = await auth.createUserWithEmailAndPassword(email, pass);
+      // seed team doc on first create
+      await db.collection('teams').doc(res.user.uid).set({ team:{ name: team, logo:'' }, roster:[], schedule:[], stats:{} });
+      return res.user;
+    }
+    throw e;
+  }
+}
+
+function startTeamListener(){
+  stopTeamListener();
+  unsub = db.collection('teams').doc(uid).onSnapshot(snap=>{
+    if (snap.exists){ data = snap.data(); setDbg('live:'+data.team?.name); hydrateUI(); }
+  }, err => { setDbg('live-error'); console.error(err); });
+}
+function stopTeamListener(){ if (unsub){ unsub(); unsub = null; } }
+
+// --- Save helpers
+async function saveDoc(patch){
+  const ref = db.collection('teams').doc(uid);
+  await ref.set(patch ? patch : data, { merge:true });
+}
+
+// --- UI handlers
+function initUI(){
+  $('#btn-login').onclick = async () => {
+    const team = $('#team-key').value.trim();
+    const pass = $('#team-pass').value;
+    $('#login-error').textContent = '';
+    if(!team || !pass){ $('#login-error').textContent = 'Enter team name and password.'; return; }
+    try{
+      const user = await loginTeam(team, pass);
+      uid = user.uid;
+      route(true);
+      // ensure team name stays synced
+      await saveDoc({ team: { ...(data.team||{}), name: team } });
+      startTeamListener();
+    }catch(e){
+      $('#login-error').textContent = e.message || 'Login failed';
     }
   };
-  $('#btn-logout').onclick = () => { authed=false; route(); };
+  $('#btn-logout').onclick = async () => {
+    stopTeamListener(); await auth.signOut(); uid=null; route(false);
+  };
 
-  // top buttons
-  $('#btn-load').onclick = pull;
-  $('#btn-save').onclick = push;
-  $('#team-key').onchange = () => { teamKey = ($('#team-key').value.trim() || DEFAULT_TEAM); pull(); };
-
-  // team profile
-  $('#btn-save-team').onclick = () => { data.team.name = $('#team-name').value.trim() || teamKey; push(); };
-  $('#team-logo').onchange = onLogoUpload;
+  $('#btn-save-team').onclick = async () => {
+    const name = $('#team-name').value.trim() || (data.team?.name || '');
+    await saveDoc({ team: { ...(data.team||{}), name } });
+    alert('Profile saved');
+  };
+  $('#team-logo').onchange = (ev)=>{
+    const f = ev.target.files && ev.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = async () => {
+      await saveDoc({ team: { ...(data.team||{}), logo: r.result } });
+    };
+    r.readAsDataURL(f);
+  };
 
   // roster
+  $('#btn-roster-template').onclick = ()=> downloadText('roster-template.csv','first,last,number,positions\nJane,Doe,12,"SS,3B"\nJohn,Smith,7,"OF"');
   $('#btn-roster-upload').onclick = onRosterUpload;
-  $('#btn-roster-template').onclick = () => downloadText('roster-template.csv','first,last,number,positions\nJane,Doe,12,"SS,3B"\nJohn,Smith,7,"OF"');
-  $('#btn-add-player').onclick = onAddPlayer;
+  $('#btn-add-player').onclick = async ()=>{
+    const first=$('#pf-first').value.trim(), last=$('#pf-last').value.trim();
+    const positions=$('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
+    const num=$('#pf-num').value?Number($('#pf-num').value):undefined;
+    if(!first || !last) return alert('First & Last are required');
+    const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
+    const roster=[...(data.roster||[]), { id, first, last, positions, number:num, spnRank:'', nsaRank:'' }];
+    await saveDoc({ roster });
+    $('#pf-first').value=''; $('#pf-last').value=''; $('#pf-pos').value=''; $('#pf-num').value='';
+  };
 
-  // schedule
-  $('#btn-sch-add').onclick = onScheduleAdd;
+  // scheduler
+  $('#btn-sch-add').onclick = async ()=>{
+    const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
+    const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
+    if(!date || !home || !away) return alert('Date, Home, Away are required');
+    const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
+    const schedule=[...(data.schedule||[]), { id, date, time, field, comp, home, away }];
+    await saveDoc({ schedule });
+    $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
+    renderCalendar();
+  };
 
   // calendar nav
   $('#prev-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); };
   $('#next-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); };
 }
 
-// --- Routing
-function route(){
+function route(authed){
   if(!authed){
     show($('#view-login'));
     hide($('#sec-team')); hide($('#sec-roster')); hide($('#sec-schedule')); hide($('#sec-calendar')); hide($('#sec-stats'));
@@ -233,80 +286,31 @@ function route(){
   hydrateUI();
 }
 
-// --- Firestore doc ref
-function teamDoc(){ return db.collection('teams').doc(teamKey); }
-
-// --- Pull/Push
-async function pull(){
-  try{
-    const snap = await teamDoc().get();
-    if (snap.exists){
-      data = snap.data();
-      setDbg('pulled:'+teamKey);
-    } else {
-      data = { team:{ name: teamKey, logo:'' }, roster:[], schedule:[], stats:{} };
-      setDbg('new-team-doc');
-    }
-    hydrateUI();
-  }catch(e){ setDbg('pull-error'); console.error(e); alert('Pull failed. Check Firebase config / rules.'); }
-}
-
-async function push(){
-  try{
-    // keep team name aligned with teamKey
-    data.team = data.team || {}; data.team.name = teamKey;
-    await teamDoc().set(data, { merge:true });
-    setDbg('pushed:'+teamKey);
-    alert('Saved');
-  }catch(e){ setDbg('push-error'); console.error(e); alert('Save failed. Check Firebase config / rules.'); }
-}
-
-// --- Team profile UI
+// --- Hydrate UI
 function hydrateUI(){
-  // team
-  $('#team-name').value = data.team?.name || teamKey;
-  const im = $('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
-  // roster
-  renderRosterTable();
-  // stats
-  renderStatsTable();
-  // calendar
-  renderCalendar();
-}
-function onLogoUpload(ev){
-  const f = ev.target.files && ev.target.files[0]; if(!f) return;
-  const r = new FileReader();
-  r.onload = () => { data.team = data.team || {}; data.team.logo = r.result; hydrateUI(); };
-  r.readAsDataURL(f);
+  $('#team-name').value = data.team?.name || '';
+  const im=$('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
+  renderRosterTable(); renderStatsTable(); renderCalendar();
 }
 
-// --- Roster
-function onAddPlayer(){
-  const first = $('#pf-first').value.trim(), last = $('#pf-last').value.trim();
-  const positions = $('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
-  const num = $('#pf-num').value ? Number($('#pf-num').value) : undefined;
-  if(!first || !last) return alert('First & Last are required');
-  const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
-  data.roster.push({ id, first, last, positions, number:num, spnRank:'', nsaRank:'' });
-  $('#pf-first').value=''; $('#pf-last').value=''; $('#pf-pos').value=''; $('#pf-num').value='';
-  hydrateUI();
-}
+// --- Roster helpers
 function onRosterUpload(){
   const f = $('#roster-file').files && $('#roster-file').files[0]; if(!f) return alert('Choose a CSV file first');
   const r = new FileReader();
-  r.onload = () => {
+  r.onload = async () => {
     const items = csvToObjects(String(r.result));
+    const roster=[...(data.roster||[])];
     for(const it of items){
-      const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()+Math.random());
-      const positions = (it.positions || '').split(/\s*,\s*/).filter(Boolean);
-      data.roster.push({ id, first:it.first||'', last:it.last||'', number: it.number?Number(it.number):undefined, positions, spnRank:'', nsaRank:'' });
+      const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now()+Math.random());
+      const positions=(it.positions||'').split(/\s*,\s*/).filter(Boolean);
+      roster.push({ id, first:it.first||'', last:it.last||'', number:it.number?Number(it.number):undefined, positions, spnRank:'', nsaRank:'' });
     }
-    hydrateUI();
+    await saveDoc({ roster });
   };
   r.readAsText(f);
 }
 function renderRosterTable(){
-  const rows = (data.roster||[]).map(p=>`<tr>
+  const rows=(data.roster||[]).map(p=>`<tr>
     <td>${p.first} ${p.last}</td>
     <td>${p.number||''}</td>
     <td>${(p.positions||[]).join(', ')}</td>
@@ -318,23 +322,28 @@ function renderRosterTable(){
   $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>SPN</th><th>NSA</th><th>ID</th></tr></thead><tbody>'+rows+'</tbody>';
 }
 
-// --- Schedule + Calendar
-function onScheduleAdd(){
-  const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
-  const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
-  if(!date || !home || !away) return alert('Date, Home, Away are required');
-  const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
-  data.schedule = data.schedule || [];
-  data.schedule.push({ id, date, time, field, comp, home, away });
-  $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
-  renderCalendar();
+// --- Stats (placeholder sortable)
+let sortKey='Player', sortDir='asc';
+function computeStats(){
+  return (data.roster||[]).map(p => ({ Player:`${p.first} ${p.last}`.trim(), PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, AVG:'0.000', OBP:'0.000', SLG:'0.000', OPS:'0.000' }));
 }
+function renderStatsTable(){
+  let rows=computeStats();
+  rows.sort((a,b)=>{const A=a[sortKey],B=b[sortKey];const num=!isNaN(parseFloat(A))&&!isNaN(parseFloat(B));return (sortDir==='asc'?1:-1)*(num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B)));});
+  const headers=['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
+  const thead='<thead><tr>'+headers.map(h=>`<th class="sort" data-key="${h}">${h}</th>`).join('')+'</tr></thead>';
+  const tbody='<tbody>'+rows.map(r=>'<tr>'+headers.map(h=>`<td>${r[h]}</td>`).join('')+'</tr>').join('')+'</tbody>';
+  $('#tbl-stats').innerHTML=thead+tbody;
+  $$('#tbl-stats th.sort').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.key;if(sortKey===key) sortDir=(sortDir==='asc'?'desc':'asc'); else{sortKey=key;sortDir='asc';} renderStatsTable();}));
+}
+
+// --- Calendar
 function renderCalendar(){
-  const m0 = new Date(calCurrent.getFullYear(), calCurrent.getMonth(), 1);
-  const m1 = new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 0);
+  const m0=new Date(calCurrent.getFullYear(), calCurrent.getMonth(), 1);
+  const m1=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 0);
   $('#cal-title').textContent = m0.toLocaleString(undefined,{month:'long',year:'numeric'});
-  const first = m0.getDay(), days = m1.getDate();
-  const grid = $('#cal-grid'); grid.innerHTML='';
+  const first=m0.getDay(), days=m1.getDate();
+  const grid=$('#cal-grid'); grid.innerHTML='';
   const daysHdr=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   for(const dd of daysHdr){ const h=document.createElement('div'); h.className='cell head'; h.textContent=dd; grid.appendChild(h); }
   for(let i=0;i<first;i++){ const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b); }
@@ -354,22 +363,7 @@ function renderCalendar(){
   }
 }
 
-// --- Stats (placeholder; sortable)
-let currentSortKey='Player', currentSortDir='asc';
-function computeStats(){
-  return (data.roster||[]).map(p => ({ Player:`${p.first} ${p.last}`.trim(), PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, AVG:'0.000', OBP:'0.000', SLG:'0.000', OPS:'0.000' }));
-}
-function renderStatsTable(){
-  let rows=computeStats();
-  rows.sort((a,b)=>{const A=a[currentSortKey],B=b[currentSortKey];const num=!isNaN(parseFloat(A))&&!isNaN(parseFloat(B));return (currentSortDir==='asc'?1:-1)*(num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B)));});
-  const headers=['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
-  const thead='<thead><tr>'+headers.map(h=>`<th class="sort" data-key="${h}">${h}</th>`).join('')+'</tr></thead>';
-  const tbody='<tbody>'+rows.map(r=>'<tr>'+headers.map(h=>`<td>${r[h]}</td>`).join('')+'</tr>').join('')+'</tbody>';
-  $('#tbl-stats').innerHTML=thead+tbody;
-  $$('#tbl-stats th.sort').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.key;if(currentSortKey===key) currentSortDir=(currentSortDir==='asc'?'desc':'asc'); else{currentSortKey=key;currentSortDir='asc';} renderStatsTable();}));
-}
-
-// --- Utils
+// --- Small utils
 function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
 function downloadText(name,text){const b=new Blob([text],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);}
 function csvToObjects(t){const rows=t.split(/\r?\n/).map(r=>r.split(',')).filter(r=>r.some(x=>x));if(!rows.length)return[];const H=rows[0].map(h=>h.toLowerCase());return rows.slice(1).map(r=>{const o={};for(let i=0;i<H.length;i++)o[H[i]]=(r[i]||'').replace(/^"|"$/g,'').trim();return o;});}
@@ -379,7 +373,7 @@ window.onload = ()=>{
   try{
     initFirebase();
     initUI();
-    route();
+    setDbg('ready');
   }catch(e){ setDbg('boot-error'); console.error(e); }
 };
 </script>
