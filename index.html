@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R11</title>
+<title>StatsDonkey — R12</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -30,18 +30,30 @@ label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:4px}
 .cell.blank{background:transparent;border:none}
 .cell .date{font-weight:800;color:#cbd5e1;margin-bottom:6px}
 .cell .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-.cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px}
+.cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px;cursor:pointer}
+.cell .events li:hover{outline:1px solid #334155}
 
 nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
 nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
 .brand{font-weight:800;color:#4ade80} .spacer{flex:1}
 #debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
 .bad{color:#f87171}
-.tag{display:inline-block;padding:4px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px}
-.field{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:320px}
-.zone{border:1px dashed #334155;border-radius:10px;padding:14px;text-align:center;cursor:pointer}
-.zone.active{outline:2px solid var(--acc)}
+
 .scorebug{position:sticky;top:52px;z-index:19;background:#0b1326;border:1px solid #1f2937;border-radius:999px;padding:6px 10px;display:inline-flex;gap:8px;align-items:center}
+.tag{display:inline-block;padding:4px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px}
+
+#diamond-wrap{display:flex;gap:16px;flex-wrap:wrap}
+#diamond{background:#0b1326;border:1px solid #1f2937;border-radius:12px;padding:8px;cursor:crosshair}
+.basegrid{display:grid;grid-template-columns:repeat(3,100px);grid-auto-rows:76px;gap:10px}
+.base{border:1px solid #334155;border-radius:12px;padding:8px}
+.base .who{display:block;margin-top:6px;font-size:12px;color:#e5e7eb}
+.base.hot{outline:2px solid var(--acc)}
+.runners{display:flex;gap:6px;flex-wrap:wrap}
+.runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
+.runner.sel{outline:2px solid var(--acc)}
+
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px}
+.modal-card{background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px}
 </style>
 </head>
 <body>
@@ -49,7 +61,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <div class="wrap">
     <div class="brand">StatsDonkey</div>
     <div class="spacer"></div>
-    <span class="small">BUILD R11</span>
+    <span class="small">BUILD R12</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -82,7 +94,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <!-- ROSTER -->
   <section id="sec-roster" class="card hidden">
     <h2>2) Roster</h2>
-    <!-- NEW PLAYER FORM -->
     <div class="row">
       <div style="max-width:160px;flex:1 1 160px"><label for="pf-first">First</label><input id="pf-first" class="input" placeholder="First"></div>
       <div style="max-width:160px;flex:1 1 160px"><label for="pf-last">Last</label><input id="pf-last" class="input" placeholder="Last"></div>
@@ -129,7 +140,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     </div>
   </section>
 
-  <!-- CALENDAR -->
+  <!-- CALENDAR (click a game to open tracker) -->
   <section id="sec-calendar" class="card hidden">
     <h2>4) Calendar</h2>
     <div class="cal-header">
@@ -149,9 +160,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <p class="small">Totals come from the player's global profile (across all teams).</p>
   </section>
 
-  <!-- GAME SETUP + TRACKER -->
+  <!-- GAME TRACKER -->
   <section id="sec-game" class="card hidden">
-    <h2>6) Game setup & tracker</h2>
+    <h2>6) Game tracker</h2>
 
     <!-- Score bug -->
     <div class="scorebug" id="scorebug" style="display:none">
@@ -160,92 +171,88 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       <span id="bug-inning" class="tag">Top 1 • 0 out</span>
     </div>
 
-    <!-- Create / Load -->
     <div class="row" style="margin-top:8px">
-      <input id="g-date" class="input" type="date" style="max-width:170px"/>
-      <input id="g-opp" class="input" placeholder="Opponent name" style="max-width:220px"/>
-      <label style="display:flex;align-items:center;gap:8px"><input id="g-home" type="checkbox"/>Home?</label>
-      <button id="btn-new-game" class="btn" type="button">Create new game</button>
-      <select id="sel-game" class="input" style="max-width:280px"></select>
-      <button id="btn-load-game" class="btn outline" type="button">Load</button>
-    </div>
-
-    <!-- Pregame: home lineup + defense -->
-    <div class="hr"></div>
-    <h3>Pregame — Home lineup & defense</h3>
-    <div class="row">
-      <div style="flex:1 1 420px;min-width:280px">
-        <div class="small" style="margin-bottom:6px">Batting order (select from roster)</div>
-        <div id="lineup-home"></div>
-      </div>
-      <div style="flex:1 1 420px;min-width:280px">
-        <div class="small" style="margin-bottom:6px">Defense</div>
-        <div id="defense-home"></div>
-      </div>
-    </div>
-
-    <!-- Opponent roster + lineup -->
-    <div class="hr"></div>
-    <h3>Pregame — Opponent</h3>
-    <div class="row">
-      <div style="max-width:260px;flex:1 1 260px"><label for="opp-name">Name</label><input id="opp-name" class="input" placeholder="Opponent name"></div>
-      <div style="max-width:200px;flex:1 1 200px"><label for="opp-add">Add player</label><input id="opp-add" class="input" placeholder="First Last"></div>
-      <button id="btn-opp-add" class="btn" type="button" style="align-self:flex-end">Add</button>
-    </div>
-    <div class="row">
-      <div style="flex:1 1 420px;min-width:280px">
-        <div class="small" style="margin-bottom:6px">Opponent batting order</div>
-        <div id="lineup-away"></div>
-      </div>
-      <div style="flex:1 1 420px;min-width:280px">
-        <div class="small" style="margin-bottom:6px">Opponent defense</div>
-        <div id="defense-away"></div>
-      </div>
-    </div>
-
-    <div class="row" style="margin-top:8px">
-      <button id="btn-save-pregame" class="btn" type="button">Save pregame</button>
-      <span class="small" id="pregame-msg"></span>
-    </div>
-
-    <!-- Live At-Bat logger -->
-    <div class="hr"></div>
-    <h3>Live — At-bat logger</h3>
-    <div class="row">
-      <select id="ab-batting" class="input" style="max-width:140px">
-        <option value="home">Home</option>
-        <option value="away">Away</option>
+      <select id="sel-side" class="input" style="max-width:140px">
+        <option value="home">Home batting</option>
+        <option value="away">Away batting</option>
       </select>
-      <select id="ab-batter" class="input" style="max-width:240px"></select>
-      <select id="ab-result" class="input" style="max-width:180px">
-        <option value="1B">Single</option><option value="2B">Double</option><option value="3B">Triple</option>
-        <option value="HR">Home Run</option><option value="BB">Walk</option><option value="K">Strikeout</option>
-        <option value="GO">Groundout</option><option value="FO">Flyout</option><option value="ROE">Reach on Error</option>
-        <option value="FC">Fielder's Choice</option><option value="SAC">Sacrifice</option>
-      </select>
-      <select id="ab-hard" class="input" style="max-width:160px">
-        <option>Medium</option><option>Hard</option><option>Soft</option>
-      </select>
-      <input id="ab-runs" class="input" type="number" placeholder="Runs scored (0-4)" style="max-width:170px"/>
-    </div>
-    <div class="small" style="margin:6px 0 4px">Spray zone (click one)</div>
-    <div class="field" id="spray">
-      <div class="zone" data-zone="LF">LF</div><div class="zone" data-zone="LCF">LCF</div><div class="zone" data-zone="CF">CF</div>
-      <div class="zone" data-zone="RCF">RCF</div><div class="zone" data-zone="RF">RF</div><div class="zone" data-zone="IF-L">IF-L</div>
-      <div class="zone" data-zone="IF-C">IF-C</div><div class="zone" data-zone="IF-R">IF-R</div><div class="zone" data-zone="BUNT">BUNT</div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button id="btn-record" class="btn" type="button">Record play</button>
-      <button id="btn-undo" class="btn outline" type="button">Undo last</button>
-      <span id="ab-msg" class="small"></span>
+      <select id="sel-batter" class="input" style="max-width:280px"></select>
+      <button id="btn-advance" class="btn outline" type="button" title="Advance batter index by 1">Next batter</button>
+      <span class="small">Click on the diamond to start a play.</span>
     </div>
 
-    <!-- Box score -->
+    <div id="diamond-wrap" class="row" style="margin-top:8px">
+      <!-- Diamond SVG -->
+      <svg id="diamond" width="360" height="360" viewBox="0 0 100 100" aria-label="Hit location">
+        <rect x="0" y="0" width="100" height="100" fill="#0b1326" rx="6" ry="6" />
+        <!-- outfield arcs -->
+        <circle cx="50" cy="70" r="28" fill="#0e1630" stroke="#1f2937"/>
+        <circle cx="50" cy="70" r="18" fill="#0b1326" stroke="#1f2937"/>
+        <!-- infield diamond -->
+        <polygon points="50,40 70,60 50,80 30,60" fill="#0e1630" stroke="#1f2937"/>
+        <!-- bases -->
+        <rect x="48" y="78" width="4" height="4" fill="#cbd5e1" transform="rotate(45 50 80)"/>
+        <rect x="68" y="58" width="4" height="4" fill="#cbd5e1" transform="rotate(45 70 60)"/>
+        <rect x="48" y="38" width="4" height="4" fill="#cbd5e1" transform="rotate(45 50 40)"/>
+        <rect x="28" y="58" width="4" height="4" fill="#cbd5e1" transform="rotate(45 30 60)"/>
+        <!-- label -->
+        <text x="50" y="14" text-anchor="middle" font-size="6" fill="#94a3b8">Click where the ball landed</text>
+      </svg>
+
+      <!-- Bases + Runners -->
+      <div>
+        <div class="small" style="margin-bottom:6px">Runners (click to select, then click a base)</div>
+        <div class="runners" id="runner-chips"></div>
+
+        <div class="hr"></div>
+        <div class="small" style="margin-bottom:6px">Bases</div>
+        <div class="basegrid">
+          <div></div>
+          <div class="base" data-base="2B"><b>2B</b><span class="who" id="who-2B">—</span></div>
+          <div></div>
+          <div class="base" data-base="3B"><b>3B</b><span class="who" id="who-3B">—</span></div>
+          <div class="base" data-base="HOME"><b>Home (score)</b><span class="who" id="who-H">—</span></div>
+          <div class="base" data-base="1B"><b>1B</b><span class="who" id="who-1B">—</span></div>
+        </div>
+        <div id="base-msg" class="small" style="margin-top:6px"></div>
+
+        <div class="hr"></div>
+        <button id="btn-save-play" class="btn" type="button">Save play</button>
+        <button id="btn-undo" class="btn outline" type="button">Undo last</button>
+      </div>
+    </div>
+
     <div class="hr"></div>
     <h3>Box score</h3>
     <div id="boxscore" class="scroll" style="max-height:40vh"></div>
   </section>
 </main>
+
+<!-- Result modal -->
+<div id="modal">
+  <div class="modal-card">
+    <h3 style="margin-top:0">Play details</h3>
+    <div class="row">
+      <div style="max-width:220px;flex:1 1 220px">
+        <label for="md-result">Result</label>
+        <select id="md-result" class="input">
+          <option value="1B">Single</option><option value="2B">Double</option><option value="3B">Triple</option>
+          <option value="HR">Home Run</option><option value="BB">Walk</option><option value="K">Strikeout</option>
+          <option value="GO">Groundout</option><option value="FO">Flyout</option><option value="ROE">Reach on Error</option>
+          <option value="FC">Fielder's Choice</option><option value="SAC">Sacrifice</option>
+        </select>
+      </div>
+      <div style="max-width:180px;flex:1 1 180px">
+        <label for="md-hard">Contact</label>
+        <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
+      </div>
+    </div>
+    <p class="small">Now place runners on the bases using the panel next to the diamond, then click <b>Save play</b>.</p>
+    <div class="row" style="justify-content:flex-end">
+      <button id="md-close" class="btn outline" type="button">Close</button>
+    </div>
+  </div>
+</div>
 
 <div id="debug">status: <span id="dbg-status">boot</span></div>
 
@@ -255,7 +262,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   import { getAnalytics, isSupported as analyticsSupported } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-analytics.js";
   import {
     getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, updateDoc,
-    getDocs, query, orderBy, startAt, endAt, limit, arrayUnion, deleteField
+    getDocs, query, where, orderBy, startAt, endAt, limit, arrayUnion
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
   // === Your Firebase config ===
@@ -282,15 +289,14 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   async function sha256Hex(text){ const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
   async function teamIdHash(team, pass){ return sha256Hex((team||'').trim().toLowerCase() + '|' + (pass||'')); }
   async function playerIdFor(first,last,dob){ return sha256Hex(`${(first||'').trim().toLowerCase()}|${(last||'').trim().toLowerCase()}|${(dob||'').trim()}`); }
-  function csvToObjects(t){const rows=t.split(/\r?\n/).map(r=>r.split(',')).filter(r=>r.some(x=>x));if(!rows.length)return[];const H=rows[0].map(h=>h.toLowerCase());return rows.slice(1).map(r=>{const o={};for(let i=0;i<H.length;i++)o[H[i]]=(r[i]||'').replace(/^"|"$/g,'').trim();return o;});}
 
-  // ---------- App state ----------
+  // ---------- State ----------
   let teamDocId = null, unsubTeam = null, unsubGame = null;
   let data = { team:{ name:'', logo:'' }, roster:[], schedule:[], stats:{} };
   let calCurrent = new Date();
   const playerCache = new Map();
-  let currentGameId = null;
-  let currentGame = null; // loaded game doc data
+  let currentGameId = null, currentGame = null;
+  let pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null, second:null, third:null }, scored:[], batter:null };
 
   // ---------- Team realtime ----------
   function startTeamListener(){
@@ -333,47 +339,51 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         await ensureTeamSeed(team);
         route(true); startTeamListener();
         setDbg('authless:ok');
-        listGames(); // populate game selector
       }catch(e){ console.error(e); err.textContent='Login failed (config/rules).'; }
     };
     $('#btn-logout').onclick = ()=>{ stopTeamListener(); stopGameListener(); currentGameId=null; currentGame=null; route(false); };
-
-    // team profile
-    $('#btn-save-team').onclick = async ()=>{
-      const name = $('#team-name').value.trim() || (data.team?.name || '');
-      await saveTeamDoc({ team: { ...(data.team||{}), name } });
-      alert('Profile saved');
-    };
-    $('#team-logo').onchange = (ev)=>{
-      const f = ev.target.files && ev.target.files[0]; if(!f) return;
-      const r=new FileReader(); r.onload=async()=>{ await saveTeamDoc({ team:{ ...(data.team||{}), logo:r.result } }); }; r.readAsDataURL(f);
-    };
 
     // roster
     $('#btn-add-player').onclick = onAddPlayer;
     $('#btn-search').onclick = onSearchPlayers;
 
     // scheduler
-    $('#btn-sch-add').onclick = async ()=>{
-      const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
-      const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
-      if(!date || !home || !away) return alert('Date, Home, Away required');
-      const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
-      const schedule=[...(data.schedule||[]), { id, date, time, field, comp, home, away }];
-      await saveTeamDoc({ schedule }); $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
-      renderCalendar();
-    };
+    $('#btn-sch-add').onclick = onAddSchedule;
 
-    // game
-    $('#btn-new-game').onclick = createNewGame;
-    $('#btn-load-game').onclick = loadSelectedGame;
-    $('#btn-opp-add').onclick = ()=> addOpponentPlayer($('#opp-add').value.trim());
-    $('#btn-save-pregame').onclick = savePregame;
-    $('#btn-record').onclick = recordPlay;
+    // calendar nav
+    $('#prev-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); };
+    $('#next-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); };
+
+    // tracker controls
+    $('#sel-side').onchange = populateBatterSelect;
+    $('#btn-advance').onclick = advanceBatter;
+    $('#btn-save-play').onclick = savePlay;
     $('#btn-undo').onclick = undoLast;
 
-    // spray zones
-    $$('#spray .zone').forEach(z=>z.onclick=()=>{ $$('#spray .zone').forEach(x=>x.classList.remove('active')); z.classList.add('active'); });
+    // diamond click → open modal (result prompt)
+    $('#diamond').addEventListener('click', (ev)=>{
+      if(!currentGameId) return;
+      const r = ev.currentTarget.getBoundingClientRect();
+      pending.x = ((ev.clientX - r.left) / r.width).toFixed(3);
+      pending.y = ((ev.clientY - r.top) / r.height).toFixed(3);
+      // prime modal with defaults
+      $('#md-result').value = '1B';
+      $('#md-hard').value = 'Medium';
+      pending.result = '1B';
+      pending.hard = 'Medium';
+      $('#modal').style.display='flex';
+    });
+    $('#md-result').onchange = ()=> pending.result = $('#md-result').value;
+    $('#md-hard').onchange   = ()=> pending.hard   = $('#md-hard').value;
+    $('#md-close').onclick   = ()=> $('#modal').style.display='none';
+
+    // base pads + runner chips
+    $$('.base').forEach(b=>{
+      b.onclick = ()=> {
+        const base = b.dataset.base;
+        placeSelectedRunner(base);
+      };
+    });
 
     setDbg('ready');
   })();
@@ -396,12 +406,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const im=$('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
     // roster + stats + cal
     renderRoster(); renderStats(); renderCalendar();
-    // pregame forms (lineup/defense builders)
-    renderLineupBuilder('home', data.roster||[]);
-    renderDefenseBuilder('home', data.roster||[]);
-    renderLineupBuilder('away', (currentGame?.away?.roster||[]).map(n=>({first:n.split(' ')[0]||'',last:n.split(' ').slice(1).join(' ')||'',playerId:n})));
-    renderDefenseBuilder('away', (currentGame?.away?.roster||[]).map(n=>({first:n,last:n,playerId:n})));
+    // tracker
     updateScoreViews();
+    populateBatterSelect();
+    renderBasesAndRunners();
+    listGamesSelect(); // helpful if you still want to load from dropdown (optional)
   }
 
   // ---------- Roster ----------
@@ -475,6 +484,257 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#tbl-roster').innerHTML='<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>NSA</th><th>SPN</th><th>ID</th></tr></thead><tbody>'+rows+'</tbody>';
   }
 
+  // ---------- Scheduler & Calendar ----------
+  async function onAddSchedule(){
+    const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
+    const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
+    if(!date || !home || !away) return alert('Date, Home, Away required');
+    const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
+    const schedule=[...(data.schedule||[]), { id, date, time, field, comp, home, away }];
+    await saveTeamDoc({ schedule });
+    $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
+    renderCalendar();
+  }
+
+  function renderCalendar(){
+    const m0=new Date(calCurrent.getFullYear(),calCurrent.getMonth(),1);
+    const m1=new Date(calCurrent.getFullYear(),calCurrent.getMonth()+1,0);
+    $('#cal-title').textContent=m0.toLocaleString(undefined,{month:'long',year:'numeric'});
+    const first=m0.getDay(),days=m1.getDate(); const grid=$('#cal-grid'); grid.innerHTML='';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{const h=document.createElement('div'); h.className='cell head'; h.textContent=d; grid.appendChild(h);});
+    for(let i=0;i<first;i++){const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b);}
+    for(let day=1; day<=days; day++){
+      const cell=document.createElement('div'); cell.className='cell';
+      const ds=`${m0.getFullYear()}-${String(m0.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
+      const ul=document.createElement('ul'); ul.className='events';
+      (data.schedule||[]).filter(g=>String(g.date)===ds).forEach(g=>{
+        const li=document.createElement('li');
+        li.textContent = `${g.time||''} ${g.home||'Home'} vs ${g.away||'Away'}${g.field?(' @ '+g.field):''}${g.comp?(' — '+g.comp):''}`.trim();
+        li.dataset.sid = g.id;
+        li.onclick = ()=> openTrackerFromSchedule(g, ds);
+        ul.appendChild(li);
+      });
+      cell.appendChild(ul); grid.appendChild(cell);
+    }
+  }
+
+  async function openTrackerFromSchedule(g, dateStr){
+    const our = data.team?.name?.trim() || '';
+    let isHome = true, opponent = g.away || 'Opponent';
+    if (g.home?.trim() === our){ isHome=true; opponent = g.away||'Opponent'; }
+    else if (g.away?.trim() === our){ isHome=false; opponent = g.home||'Opponent'; }
+    // find or create game by date + opponent
+    const sub = collection(doc(db,"teams",teamDocId),"games");
+    // Query by date only (to avoid composite index), then filter on opponent in JS
+    const qy = query(sub, where('meta.date','==', dateStr), limit(10));
+    const snap = await getDocs(qy);
+    let found = null; snap.forEach(d => { const x=d.data(); if ((x.meta?.opponent||'')===opponent) found = { id:d.id, data:x }; });
+    if (found){ startGameListener(found.id); }
+    else {
+      const id = Date.now().toString(36);
+      const def = { P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,LCF:null,RCF:null,RF:null };
+      const seed = {
+        meta:{ date:dateStr, opponent, isHome, status:'pregame', createdAt:new Date().toISOString() },
+        home:{ lineup:(data.roster||[]).slice(0,10).map(r=>r.playerId), defense:{...def}, batterIndex:0, name:data.team?.name||'Home' },
+        away:{ roster:[], lineup:[], defense:{...def}, batterIndex:0, name:opponent },
+        inning:{ half:'top', number:1, outs:0 },
+        bases:{ first:null, second:null, third:null },
+        score:{ home:0, away:0, byInning:{} },
+        plays:[]
+      };
+      await setDoc(doc(db,"teams",teamDocId,"games",id), seed);
+      startGameListener(id);
+    }
+    // route to tracker view
+    document.getElementById('sec-game').scrollIntoView({behavior:'smooth'});
+  }
+
+  // ---------- Games list (optional helper) ----------
+  async function listGamesSelect(){
+    const selSide = $('#sel-side'); // noop, just to ensure present
+    // no dropdown here; calendar is now the entrypoint
+  }
+
+  function stopGameListener(){ if (unsubGame){ unsubGame(); unsubGame=null; } }
+  function startGameListener(gameId){
+    stopGameListener();
+    const ref=doc(db,"teams",teamDocId,"games",gameId);
+    unsubGame=onSnapshot(ref,snap=>{
+      if(!snap.exists()) return;
+      currentGame=snap.data(); currentGameId=gameId;
+      if (!currentGame.bases) currentGame.bases={ first:null, second:null, third:null };
+      $('#scorebug').style.display='inline-flex';
+      updateScoreViews();
+      populateBatterSelect();
+      renderBasesAndRunners();
+    });
+  }
+
+  // ---------- Tracker helpers ----------
+  function getHomeName(pid){
+    const r=(data.roster||[]).find(x=>x.playerId===pid);
+    return r ? `${r.first||''} ${r.last||''}`.trim() : pid;
+  }
+  function nameForId(id){ return getHomeName(id); } // away uses plain text ids
+
+  function populateBatterSelect(){
+    if(!currentGame) return;
+    const side = currentGame.inning?.half==='top' ? 'away' : 'home';
+    $('#sel-side').value = side;
+    const sel=$('#sel-batter'); sel.innerHTML='';
+    const arr = currentGame[side]?.lineup || [];
+    arr.forEach(pid=>{
+      const opt=document.createElement('option');
+      opt.value=pid; opt.textContent = (side==='home') ? getHomeName(pid) : pid;
+      sel.appendChild(opt);
+    });
+    const idx = currentGame[side]?.batterIndex || 0;
+    sel.selectedIndex = (arr.length? (idx%arr.length) : -1);
+  }
+  async function advanceBatter(){
+    if(!currentGameId) return;
+    const side=$('#sel-side').value;
+    const len = (currentGame?.[side]?.lineup||[]).length;
+    const next = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
+    await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
+  }
+
+  function renderBasesAndRunners(){
+    if(!currentGame) return;
+    // bases view
+    const b=currentGame.bases||{first:null,second:null,third:null};
+    $('#who-1B').textContent = b.first ? nameForId(b.first) : '—';
+    $('#who-2B').textContent = b.second? nameForId(b.second): '—';
+    $('#who-3B').textContent = b.third ? nameForId(b.third) : '—';
+    $('#who-H').textContent   = '—';
+
+    // runner chips = existing base occupants + batter
+    const chips = [];
+    if (b.first) chips.push({id:b.first, label:nameForId(b.first)});
+    if (b.second)chips.push({id:b.second,label:nameForId(b.second)});
+    if (b.third) chips.push({id:b.third, label:nameForId(b.third)});
+    const batterId = $('#sel-batter').value || 'Batter';
+    chips.push({id:batterId,label:(currentGame.inning?.half==='top' ? batterId : getHomeName(batterId)) || 'Batter'});
+
+    const host=$('#runner-chips'); host.innerHTML='';
+    chips.forEach(c=>{
+      const el=document.createElement('div'); el.className='runner'; el.textContent=c.label; el.dataset.pid=c.id;
+      el.onclick=()=>{ $$('.runner').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); host.dataset.sel = c.id; $('#base-msg').textContent='Selected: '+c.label; };
+      host.appendChild(el);
+    });
+  }
+
+  function placeSelectedRunner(base){
+    const pid = $('#runner-chips').dataset.sel; if(!pid){ $('#base-msg').textContent='Select a runner first'; return; }
+    // update pending bases map for this play (work on a temp copy seeded from current bases)
+    if (!pending.bases) pending.bases={ first:null, second:null, third:null };
+    // remove pid from all bases first
+    for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
+    // place
+    if (base==='1B') pending.bases.first = pid;
+    else if (base==='2B') pending.bases.second = pid;
+    else if (base==='3B') pending.bases.third = pid;
+    else if (base==='HOME') {
+      // mark as scored (remove from bases, count run)
+      if (!pending.scored) pending.scored=[];
+      if (!pending.scored.includes(pid)) pending.scored.push(pid);
+      for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
+      $('#who-H').textContent='Scored: '+ (currentGame.inning?.half==='top' ? pid : getHomeName(pid));
+      $('#base-msg').textContent = 'Marked run';
+      return;
+    }
+    // reflect in UI preview
+    const b = Object.assign({ first:null,second:null,third:null }, currentGame.bases, pending.bases);
+    $('#who-1B').textContent = b.first ? nameForId(b.first) : '—';
+    $('#who-2B').textContent = b.second? nameForId(b.second): '—';
+    $('#who-3B').textContent = b.third ? nameForId(b.third) : '—';
+    $('#base-msg').textContent = 'Placed runner on '+base;
+  }
+
+  async function savePlay(){
+    if(!currentGameId) return;
+    // ensure modal was opened at least once for this play to set result/coords
+    const side = $('#sel-side').value;
+    const batter = $('#sel-batter').value || 'Unknown';
+    // derive basesAfter: if user didn’t place anything, keep current bases; else merge
+    const after = Object.assign({ first:null,second:null,third:null }, currentGame.bases, pending.bases||{});
+    const runs = (pending.scored||[]).length;
+
+    const play = {
+      ts: new Date().toISOString(),
+      batting: side,
+      batter,
+      result: pending.result || '1B',
+      hard: pending.hard || 'Medium',
+      loc: { x: pending.x, y: pending.y },
+      basesAfter: after,
+      runs,
+      inning: currentGame.inning?.number||1,
+      half: currentGame.inning?.half||'top'
+    };
+    const ref=doc(db,"teams",teamDocId,"games",currentGameId);
+    await updateDoc(ref, { plays: arrayUnion(play), bases: after });
+
+    // advance batter index
+    const len = (currentGame?.[side]?.lineup||[]).length||0;
+    const next = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
+    await setDoc(ref, { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
+
+    // reset pending + UI
+    pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null,second:null,third:null }, scored:[], batter:null };
+    $('#modal').style.display='none';
+    $('#base-msg').textContent='Play saved';
+  }
+
+  async function undoLast(){
+    if(!currentGameId) return; const ref=doc(db,"teams",teamDocId,"games",currentGameId);
+    const snap=await getDoc(ref); if(!snap.exists()) return;
+    const plays=[...(snap.data().plays||[])]; const last=plays.pop();
+    await setDoc(ref,{plays},{merge:true});
+    // restore previous bases if we have a prior play; else clear
+    if (plays.length){
+      const prev = plays[plays.length-1];
+      const b = prev.basesAfter || { first:null,second:null,third:null };
+      await setDoc(ref,{bases:b},{merge:true});
+    } else {
+      await setDoc(ref,{bases:{ first:null,second:null,third:null }},{merge:true});
+    }
+  }
+
+  // ---------- Score & Box ----------
+  function computeScore(plays){
+    const score={home:0,away:0, byInning:{}};
+    (plays||[]).forEach(p=>{
+      const runs = Number(p.runs||0)||0;
+      score[p.batting]+=runs;
+      const inn=p.inning||1;
+      if(!score.byInning[inn]) score.byInning[inn]={home:0,away:0};
+      score.byInning[inn][p.batting]+=runs;
+    });
+    return score;
+  }
+  function updateScoreViews(){
+    if(!currentGame) return;
+    const score = computeScore(currentGame.plays||[]);
+    const opp = currentGame.meta?.opponent||'?';
+    const half = currentGame.inning?.half==='top'?'Top':'Bot';
+    const outs = currentGame.inning?.outs||0;
+    $('#bug-opp').textContent = (currentGame.meta?.isHome ? `vs ${opp}` : `@ ${opp}`);
+    $('#bug-score').textContent = `${score.home}–${score.away}`;
+    $('#bug-inning').textContent = `${half} ${currentGame.inning?.number||1} • ${outs} out`;
+
+    const maxInning = Math.max( ...[1, ...Object.keys(score.byInning).map(n=>Number(n)||1) ] );
+    let html = '<table class="table"><thead><tr><th></th>';
+    for(let i=1;i<=maxInning;i++) html += `<th>${i}</th>`;
+    html += '<th>R</th></tr></thead><tbody>';
+    const row = (name,side)=>{ let t=`<tr><td>${name}</td>`; for(let i=1;i<=maxInning;i++){ t+=`<td>${(score.byInning[i]?.[side]||0)}</td>`; } t+=`<td>${score[side]}</td></tr>`; return t; };
+    html += row(currentGame.home?.name||'Home','home');
+    html += row(currentGame.away?.name||'Away','away');
+    html += '</tbody></table>';
+    $('#boxscore').innerHTML = html;
+  }
+
   // ---------- Stats ----------
   function computeStatsRows(){
     return (data.roster||[]).map(r=>{
@@ -493,209 +753,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $$('#tbl-stats th.sort').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.key;if(sortKey===key) sortDir=(sortDir==='asc'?'desc':'asc'); else{sortKey=key;sortDir='asc';} renderStats();}));
   }
 
-  // ---------- Calendar ----------
-  function renderCalendar(){
-    const m0=new Date(calCurrent.getFullYear(),calCurrent.getMonth(),1);
-    const m1=new Date(calCurrent.getFullYear(),calCurrent.getMonth()+1,0);
-    $('#cal-title').textContent=m0.toLocaleString(undefined,{month:'long',year:'numeric'});
-    const first=m0.getDay(),days=m1.getDate(); const grid=$('#cal-grid'); grid.innerHTML='';
-    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{const h=document.createElement('div'); h.className='cell head'; h.textContent=d; grid.appendChild(h);});
-    for(let i=0;i<first;i++){const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b);}
-    for(let day=1; day<=days; day++){
-      const cell=document.createElement('div'); cell.className='cell';
-      const ds=`${m0.getFullYear()}-${String(m0.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
-      const ul=document.createElement('ul'); ul.className='events';
-      (data.schedule||[]).filter(g=>String(g.date)===ds).forEach(g=>{
-        const li=document.createElement('li'); li.textContent=`${g.time||''} ${g.home||'Home'} vs ${g.away||'Away'}${g.field?(' @ '+g.field):''}${g.comp?(' — '+g.comp):''}`.trim(); ul.appendChild(li);
-      });
-      cell.appendChild(ul); grid.appendChild(cell);
-    }
-  }
-
-  // ---------- Game: create/load ----------
-  async function listGames(){
-    const sel=$('#sel-game'); sel.innerHTML=''; // list recent 15 by createdAt desc
-    const sub=collection(doc(db,"teams",teamDocId),"games"); const qy=query(sub, orderBy('meta.createdAt','desc'), limit(15));
-    const snap=await getDocs(qy);
-    snap.forEach(d=>{
-      const g=d.data(); const o=document.createElement('option');
-      o.value=d.id; o.textContent=`${g.meta?.date||'?'} — ${g.meta?.opponent||'?'} (${g.meta?.isHome?'Home':'Away'})`;
-      sel.appendChild(o);
-    });
-  }
-
-  function stopGameListener(){ if (unsubGame){ unsubGame(); unsubGame=null; } }
-  function startGameListener(gameId){
-    stopGameListener();
-    const ref=doc(db,"teams",teamDocId,"games",gameId);
-    unsubGame=onSnapshot(ref,snap=>{
-      if(!snap.exists()) return;
-      currentGame=snap.data(); currentGameId=gameId;
-      $('#scorebug').style.display='inline-flex';
-      hydrateUI();
-      updateScoreViews();
-      populateAtBatControls();
-    });
-  }
-
-  async function createNewGame(){
-    const date=$('#g-date').value || new Date().toISOString().slice(0,10);
-    const opp=$('#g-opp').value.trim() || 'Opponent';
-    const isHome=$('#g-home').checked;
-    const id = Date.now().toString(36);
-    const ref=doc(db,"teams",teamDocId,"games",id);
-    const homeLineup=(data.roster||[]).slice(0,10).map(r=>r.playerId);
-    const defTemplate = { P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,LCF:null,RCF:null,RF:null };
-    const seed={
-      meta:{ date, opponent:opp, isHome, status:'pregame', createdAt:new Date().toISOString() },
-      home:{ lineup:homeLineup, defense:{...defTemplate}, batterIndex:0, name:data.team?.name||'Home' },
-      away:{ roster:[], lineup:[], defense:{...defTemplate}, batterIndex:0, name:opp },
-      inning:{ half:'top', number:1, outs:0 },
-      score:{ home:0, away:0, byInning:{} },
-      plays:[]
-    };
-    await setDoc(ref,seed);
-    startGameListener(id);
-    await listGames();
-    $('#opp-name').value=opp;
-  }
-
-  async function loadSelectedGame(){
-    const id=$('#sel-game').value; if(!id) return;
-    startGameListener(id);
-  }
-
-  // ---------- Game: pregame builders ----------
-  const POSITIONS=['P','C','1B','2B','3B','SS','LF','LCF','RCF','RF'];
-
-  function renderLineupBuilder(side, rosterLike){
-    const host = $('#lineup-'+side); host.innerHTML='';
-    const arr = (side==='home') ? (currentGame?.home?.lineup || (data.roster||[]).slice(0,10).map(r=>r.playerId))
-                                 : (currentGame?.away?.lineup || []);
-    const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
-    for(let i=0;i<10;i++){
-      const wrap=document.createElement('div'); wrap.className='row';
-      const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
-      sel.innerHTML='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
-      sel.value = arr[i] || '';
-      sel.onchange=async()=>{
-        await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: Object.assign([], arr, {[i]:sel.value})}}, {merge:true});
-      };
-      const lab=document.createElement('div'); lab.className='small'; lab.textContent=`${i+1}`;
-      wrap.appendChild(lab); wrap.appendChild(sel); host.appendChild(wrap);
-    }
-  }
-
-  function renderDefenseBuilder(side, rosterLike){
-    const host=$('#defense-'+side); host.innerHTML='';
-    const def = currentGame?.[side]?.defense || {};
-    const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
-    POSITIONS.forEach(pos=>{
-      const row=document.createElement('div'); row.className='row';
-      const lab=document.createElement('div'); lab.className='small'; lab.style.width='46px'; lab.textContent=pos;
-      const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
-      sel.innerHTML='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
-      sel.value=def[pos]||'';
-      sel.onchange=async()=>{
-        const patch={}; patch[`${side}.defense.${pos}`]=sel.value||null;
-        await updateDoc(doc(db,"teams",teamDocId,"games",currentGameId), patch);
-      };
-      row.appendChild(lab); row.appendChild(sel); host.appendChild(row);
-    });
-  }
-
-  async function addOpponentPlayer(fullname){
-    if(!currentGameId || !fullname) return;
-    const list=[...((currentGame?.away?.roster)||[])]; list.push(fullname);
-    await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { away:{ ...(currentGame?.away||{}), roster:list } }, {merge:true});
-    renderLineupBuilder('away', list.map(n=>({first:n.split(' ')[0]||'',last:n.split(' ').slice(1).join(' ')||'',playerId:n})));
-    $('#opp-add').value='';
-  }
-
-  async function savePregame(){
-    if(!currentGameId) return;
-    const opp = $('#opp-name').value.trim() || currentGame?.meta?.opponent || 'Opponent';
-    await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { meta:{ ...(currentGame?.meta||{}), opponent:opp, status:'live' } }, {merge:true});
-    $('#pregame-msg').textContent='Saved. Game is LIVE.';
-    setTimeout(()=>$('#pregame-msg').textContent='',2000);
-  }
-
-  // ---------- Game: live at-bat ----------
-  function populateAtBatControls(){
-    if(!currentGame) return;
-    $('#ab-batting').value = currentGame.inning?.half==='top' ? 'away' : 'home';
-    const side = $('#ab-batting').value;
-    const lineup = currentGame?.[side]?.lineup || [];
-    const sel = $('#ab-batter'); sel.innerHTML='';
-    lineup.forEach(pid=>{
-      const name = (side==='home')
-        ? (data.roster||[]).find(r=>r.playerId===pid)?.first + ' ' + (data.roster||[]).find(r=>r.playerId===pid)?.last
-        : pid; // opponent lineup is free text ids
-      const opt=document.createElement('option'); opt.value=pid; opt.textContent=name||pid; sel.appendChild(opt);
-    });
-    updateScoreViews();
-  }
-
-  function computeScore(plays){
-    const score={home:0,away:0, byInning:{}};
-    (plays||[]).forEach(p=>{
-      const inn=p.inning||1, half=p.half||'top'; const side=p.batting||'home';
-      const runs = Number(p.runs||0)||0;
-      score[side]+=runs;
-      if(!score.byInning[inn]) score.byInning[inn]={home:0,away:0};
-      score.byInning[inn][side]+=runs;
-    });
-    return score;
-  }
-
-  function updateScoreViews(){
-    if(!currentGame) return;
-    const score = computeScore(currentGame.plays||[]);
-    const opp = currentGame.meta?.opponent||'?';
-    const half = currentGame.inning?.half==='top'?'Top':'Bot';
-    const outs = currentGame.inning?.outs||0;
-    $('#bug-opp').textContent = (currentGame.meta?.isHome ? `vs ${opp}` : `@ ${opp}`);
-    $('#bug-score').textContent = `${score.home}–${score.away}`;
-    $('#bug-inning').textContent = `${half} ${currentGame.inning?.number||1} • ${outs} out`;
-    // boxscore
-    const maxInning = Math.max( ...[1, ...Object.keys(score.byInning).map(n=>Number(n)||1) ] );
-    let html = '<table class="table"><thead><tr><th></th>';
-    for(let i=1;i<=maxInning;i++) html += `<th>${i}</th>`;
-    html += '<th>R</th></tr></thead><tbody>';
-    const row = (name,side)=>{ let t=`<tr><td>${name}</td>`; for(let i=1;i<=maxInning;i++){ t+=`<td>${(score.byInning[i]?.[side]||0)}</td>`; } t+=`<td>${score[side]}</td></tr>`; return t; };
-    html += row(currentGame.home?.name||'Home','home');
-    html += row(currentGame.away?.name||'Away','away');
-    html += '</tbody></table>';
-    $('#boxscore').innerHTML = html;
-  }
-
-  async function recordPlay(){
-    if(!currentGameId) return;
-    const batting = $('#ab-batting').value; const batter = $('#ab-batter').value || 'Unknown';
-    const result = $('#ab-result').value; const hard = $('#ab-hard').value;
-    const runs = Number($('#ab-runs').value||0)||0;
-    const activeZone = ($$('#spray .zone').find(z=>z.classList.contains('active'))?.dataset?.zone)||'';
-    const inn = currentGame.inning?.number||1; const half = currentGame.inning?.half||'top';
-    const timestamp = new Date().toISOString();
-    const play = { ts:timestamp, batting, batter, result, hard, zone:activeZone, runs, inning:inn, half };
-    const ref=doc(db,"teams",teamDocId,"games",currentGameId);
-    await updateDoc(ref, { plays: arrayUnion(play) });
-    // advance batter index (simple)
-    const side = batting; const len = (currentGame?.[side]?.lineup||[]).length||0;
-    const nextIndex = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
-    await setDoc(ref, { [side]:{ ...(currentGame?.[side]||{}), batterIndex: nextIndex } }, {merge:true});
-    $('#ab-msg').textContent='Recorded'; setTimeout(()=>$('#ab-msg').textContent='',1200);
-  }
-
-  async function undoLast(){
-    // simple undo: reload doc, drop last play, write whole plays array back
-    if(!currentGameId) return; const ref=doc(db,"teams",teamDocId,"games",currentGameId);
-    const snap=await getDoc(ref); if(!snap.exists()) return;
-    const plays=[...(snap.data().plays||[])]; plays.pop();
-    await setDoc(ref,{plays},{merge:true});
-  }
-
+  // ---------- Boot ----------
+  setDbg('ready');
 </script>
 
 <noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
