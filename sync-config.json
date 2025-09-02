@@ -1,4 +1,0 @@
-{
-  "SYNC_ENDPOINT": "",
-  "NOTES": "Deploy a proxy (e.g., Cloudflare Worker) that holds Atlas Data API secrets; paste its public URL here to enable Cloud Sync. Player directory returns only public fields."
-}
