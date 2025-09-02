@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R9 (no Auth, modular Firebase)</title>
+<title>StatsDonkey — R10</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -13,7 +13,7 @@
 .input,select{width:100%;background:#0b1220;color:var(--fg);border:1px solid #334155;border-radius:12px;padding:12px}
 .btn{background:var(--acc);color:#06220f;border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
 .btn.outline{background:transparent;color:var(--acc);border:1px solid var(--acc)} .btn.small{padding:8px 10px;font-size:12px}
-.small{font-size:12px;color:#94a3b8}
+.small{font-size:12px;color:var(--mut)}
 .table{width:100%;border-collapse:separate;border-spacing:0;margin-top:10px}
 .table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
 .table thead th{position:sticky;top:0;background:var(--card);z-index:1}
@@ -33,6 +33,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .brand{font-weight:800;color:#4ade80} .spacer{flex:1}
 #debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
 @media (max-width:740px){.container{padding:12px}}
+.bad{color:#f87171}
 </style>
 </head>
 <body>
@@ -40,7 +41,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <div class="wrap">
     <div class="brand">StatsDonkey</div>
     <div class="spacer"></div>
-    <span class="small">BUILD R9</span>
+    <span class="small">BUILD R10</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -49,13 +50,13 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <!-- LOGIN (no Firebase Auth) -->
   <section id="view-login" class="card">
     <h2>Team Login</h2>
-    <p class="small">Enter <b>Team</b> and <b>Password</b>. First login creates the profile. Any device with the same team+password loads the same data.</p>
+    <p class="small">Enter <b>Team</b> and <b>Password</b>. First login creates the team. Any device with the same team+password loads the same data.</p>
     <div class="row">
       <input id="team-id" class="input" placeholder="Team (e.g., Argos)" autocomplete="off" autocapitalize="none" spellcheck="false" style="max-width:280px"/>
       <input id="team-pass" class="input" type="password" placeholder="Password" autocomplete="new-password" style="max-width:220px"/>
       <button id="btn-login" class="btn" type="button">Log in</button>
     </div>
-    <div id="login-error" class="small" style="color:#f87171;margin-top:6px"></div>
+    <div id="login-error" class="small bad" style="margin-top:6px"></div>
   </section>
 
   <!-- TEAM PROFILE -->
@@ -70,23 +71,38 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <img id="logo-preview" alt="logo" style="max-width:160px;max-height:160px;border:1px solid var(--line);border-radius:12px;display:none"/>
   </section>
 
-  <!-- ROSTER -->
+  <!-- ROSTER (NEW FORM + SEARCH) -->
   <section id="sec-roster" class="card hidden">
     <h2>2) Roster</h2>
-    <p class="small">CSV headers: <code>first,last,number,positions</code></p>
-    <div class="row">
-      <input id="roster-file" type="file" accept=".csv" class="input" style="max-width:360px"/>
-      <button id="btn-roster-upload" class="btn" type="button">Upload CSV</button>
-      <button id="btn-roster-template" class="btn outline" type="button">CSV template</button>
-    </div>
+
+    <!-- Add NEW player -->
     <div class="row">
       <input id="pf-first" class="input" placeholder="First" style="max-width:160px"/>
       <input id="pf-last" class="input" placeholder="Last" style="max-width:160px"/>
-      <input id="pf-pos" class="input" placeholder="Positions (SS, 3B, OF)" style="max-width:200px"/>
-      <input id="pf-num" class="input" type="number" placeholder="#" style="max-width:100px"/>
-      <button id="btn-add-player" class="btn" type="button">Add Player</button>
+      <input id="pf-dob" class="input" type="date" placeholder="DOB" style="max-width:160px"/>
+      <input id="pf-pos" class="input" placeholder="Position(s) e.g. SS, 3B, OF" style="max-width:240px"/>
+      <input id="pf-num" class="input" type="number" placeholder="#" style="max-width:90px"/>
     </div>
-    <div id="roster-count" class="small" style="margin-top:6px"></div>
+    <div class="row">
+      <input id="pf-nsa" class="input" placeholder="NSA rank" style="max-width:180px"/>
+      <input id="pf-spn" class="input" placeholder="SPN rank" style="max-width:180px"/>
+      <button id="btn-add-player" class="btn" type="button">Add New Player</button>
+      <span id="pf-err" class="small bad"></span>
+    </div>
+
+    <hr style="border-color:#1f2937;margin:14px 0;opacity:.6"/>
+
+    <!-- Search existing global players -->
+    <div class="row">
+      <input id="srch-name" class="input" placeholder="Search existing players by name" style="max-width:360px"/>
+      <input id="srch-dob" class="input" type="date" placeholder="DOB (optional)" style="max-width:180px"/>
+      <input id="srch-num" class="input" type="number" placeholder="# for team" style="max-width:120px"/>
+      <input id="srch-pos" class="input" placeholder="Position(s) for team" style="max-width:220px"/>
+      <button id="btn-search" class="btn" type="button">Search</button>
+    </div>
+    <div id="srch-results" class="small" style="margin-top:6px"></div>
+
+    <div id="roster-count" class="small" style="margin-top:10px"></div>
     <div class="scroll roster"><table class="table" id="tbl-roster"></table></div>
   </section>
 
@@ -119,24 +135,26 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
   <!-- STATS -->
   <section id="sec-stats" class="card hidden">
-    <h2>5) Player stats</h2>
+    <h2>5) Player stats (global)</h2>
     <div class="scroll stats">
       <table class="table sortable" id="tbl-stats"></table>
     </div>
-    <p class="small">Stats are placeholders; we’ll wire the live at-bat logger next.</p>
+    <p class="small">These totals come from the player's global profile (across all teams). We’ll start filling them once the live game logger is in.</p>
   </section>
 </main>
 
 <div id="debug">status: <span id="dbg-status">boot</span></div>
 
-<!-- Modular Firebase via ESM (NO auth compat anywhere) -->
+<!-- Modular Firebase via ESM (NO auth) -->
 <script type="module">
-  // --- Modular imports from CDN (no bundler needed) ---
+  // --- Firebase modular imports from CDN ---
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
   import { getAnalytics, isSupported as analyticsSupported } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-analytics.js";
-  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, limit, getDocs, startAt, endAt
+  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // === Your web app's Firebase configuration (exact values you provided) ===
+  // === Your Firebase config (the one you gave) ===
   const firebaseConfig = {
     apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
     authDomain: "statsdonkey-c276c.firebaseapp.com",
@@ -147,12 +165,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     measurementId: "G-T670NG1LYF"
   };
 
-  // Initialize Firebase (modular)
+  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
-  // Optional analytics (guarded so older browsers don’t throw)
   try { if (await analyticsSupported()) getAnalytics(app); } catch {}
-
-  // Firestore (no Auth)
   const db = getFirestore(app);
 
   // ---- Utilities & globals ----
@@ -163,26 +178,40 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   let data = { team:{ name:'', logo:'' }, roster:[], schedule:[], stats:{} };
   let calCurrent = new Date();
 
-  // sha256("team|password") -> 64-char hex
-  async function idFor(team, pass){
-    const enc = new TextEncoder().encode((team||'').trim().toLowerCase() + '|' + (pass||''));
-    const buf = await crypto.subtle.digest('SHA-256', enc);
+  // cache of global players for quick stats/labels
+  const playerCache = new Map(); // id -> playerDocData
+
+  // sha256 helpers
+  async function sha256Hex(text){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
+  async function teamIdHash(team, pass){
+    return sha256Hex((team||'').trim().toLowerCase() + '|' + (pass||''));
+  }
+  async function playerIdFor(first, last, dob){
+    const f=(first||'').trim().toLowerCase(), l=(last||'').trim().toLowerCase();
+    const d=(dob||'').trim(); // YYYY-MM-DD
+    return sha256Hex(`${f}|${l}|${d}`);
+  }
+  function nameNorm(first,last){ return `${(first||'').trim().toLowerCase()} ${(last||'').trim().toLowerCase()}`.trim(); }
 
+  // Listener & saves
   function startListener(){
     stopListener();
     const ref = doc(db, "teams", teamDocId);
-    unsub = onSnapshot(ref, snap => {
+    unsub = onSnapshot(ref, async snap=>{
       if (snap.exists()){
         data = snap.data();
         setDbg('live:'+ (data.team?.name||''));
+        // ensure we have player docs cached for this roster
+        await preloadRosterPlayers();
         hydrateUI();
       }
     }, err => { setDbg('live-error'); console.error(err); });
   }
   function stopListener(){ if (unsub){ unsub(); unsub=null; } }
-  async function ensureSeed(team){
+  async function ensureTeamSeed(team){
     const ref = doc(db, "teams", teamDocId);
     const snap = await getDoc(ref);
     if (!snap.exists()){
@@ -194,21 +223,28 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       }
     }
   }
-  async function saveDoc(patch){
-    const ref = doc(db, "teams", teamDocId);
-    await setDoc(ref, patch ? patch : data, { merge:true });
+  async function saveTeamDoc(patch){ await setDoc(doc(db, "teams", teamDocId), patch ? patch : data, { merge:true }); }
+
+  async function preloadRosterPlayers(){
+    const ids = Array.from(new Set((data.roster||[]).map(r=>r.playerId).filter(Boolean)));
+    await Promise.all(ids.map(async id=>{
+      if (playerCache.has(id)) return;
+      const snap = await getDoc(doc(db, "players", id));
+      if (snap.exists()) playerCache.set(id, snap.data());
+    }));
   }
 
   // ---- UI wiring ----
   (function initUI(){
+    // login
     $('#btn-login').onclick = async () => {
       const team = $('#team-id').value.trim();
       const pass = $('#team-pass').value;
       const err = $('#login-error'); err.textContent='';
       if (!team || !pass){ err.textContent='Enter team and password.'; return; }
       try{
-        teamDocId = await idFor(team, pass);
-        await ensureSeed(team);
+        teamDocId = await teamIdHash(team, pass);
+        await ensureTeamSeed(team);
         route(true); startListener();
         setDbg('authless:ok');
       }catch(e){
@@ -217,30 +253,133 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     };
     $('#btn-logout').onclick = () => { stopListener(); teamDocId=null; route(false); };
 
+    // team profile
     $('#btn-save-team').onclick = async () => {
       const name = $('#team-name').value.trim() || (data.team?.name || '');
-      await saveDoc({ team: { ...(data.team||{}), name } });
+      await saveTeamDoc({ team: { ...(data.team||{}), name } });
       alert('Profile saved');
     };
     $('#team-logo').onchange = (ev)=>{
       const f = ev.target.files && ev.target.files[0]; if(!f) return;
       const r = new FileReader();
-      r.onload = async () => { await saveDoc({ team: { ...(data.team||{}), logo: r.result } }); };
+      r.onload = async () => { await saveTeamDoc({ team: { ...(data.team||{}), logo: r.result } }); };
       r.readAsDataURL(f);
     };
 
-    // roster
-    $('#btn-roster-template').onclick = ()=> download('roster-template.csv','first,last,number,positions\nJane,Doe,12,"SS,3B"\nJohn,Smith,7,"OF"');
-    $('#btn-roster-upload').onclick = onRosterUpload;
+    // add NEW player
     $('#btn-add-player').onclick = async ()=>{
+      $('#pf-err').textContent = '';
       const first=$('#pf-first').value.trim(), last=$('#pf-last').value.trim();
+      const dob=$('#pf-dob').value; // YYYY-MM-DD
       const positions=$('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
-      const num=$('#pf-num').value?Number($('#pf-num').value):undefined;
-      if(!first || !last) return alert('First & Last required');
-      const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
-      const roster=[...(data.roster||[]), { id, first, last, positions, number:num, spnRank:'', nsaRank:'' }];
-      await saveDoc({ roster });
-      $('#pf-first').value=''; $('#pf-last').value=''; $('#pf-pos').value=''; $('#pf-num').value='';
+      const number=$('#pf-num').value?Number($('#pf-num').value):undefined;
+      const nsa=$('#pf-nsa').value.trim(), spn=$('#pf-spn').value.trim();
+      if(!first || !last || !dob){ $('#pf-err').textContent='First, Last, and DOB are required.'; return; }
+
+      try{
+        const pid = await playerIdFor(first,last,dob);
+
+        // Prevent duplicate on THIS team
+        const existsOnTeam = (data.roster||[]).some(r => r.playerId === pid);
+        if (existsOnTeam){ $('#pf-err').textContent='Player already on this roster.'; return; }
+
+        // Upsert global player profile (id based on name+dob)
+        const pRef = doc(db, "players", pid);
+        const pSnap = await getDoc(pRef);
+        if (!pSnap.exists()){
+          await setDoc(pRef, {
+            first, last, dob,
+            nameNorm: nameNorm(first,last),
+            ranks: { nsa, spn },
+            // Aggregated career stats; fill later via game logger
+            stats: { PA:0, AB:0, H:0, "1B":0, "2B":0, "3B":0, HR:0, BB:0, K:0, AVG:"0.000", OBP:"0.000", SLG:"0.000", OPS:"0.000" },
+            createdAt: new Date().toISOString()
+          }, { merge:true });
+        } else {
+          // Optional: update ranks if provided
+          const cur = pSnap.data()||{};
+          const ranks = { ...(cur.ranks||{}) };
+          if (nsa) ranks.nsa = nsa;
+          if (spn) ranks.spn = spn;
+          await setDoc(pRef, { ranks }, { merge:true });
+        }
+        playerCache.set(pid, (await getDoc(pRef)).data());
+
+        // Add to team roster (store team-specific jersey & positions + surface ranks)
+        const roster=[...(data.roster||[]), {
+          playerId: pid, first, last, dob, number, positions, ranks:{ nsa, spn }
+        }];
+        await saveTeamDoc({ roster });
+
+        // clear fields
+        ['pf-first','pf-last','pf-dob','pf-pos','pf-num','pf-nsa','pf-spn'].forEach(id=>{ const el=$( '#'+id ); if(el) el.value=''; });
+      }catch(e){
+        console.error(e); $('#pf-err').textContent='Add failed.';
+      }
+    };
+
+    // search existing global players
+    $('#btn-search').onclick = async ()=>{
+      const term = $('#srch-name').value.trim().toLowerCase();
+      const dob = $('#srch-dob').value; // optional
+      const out = $('#srch-results'); out.innerHTML='';
+      if(!term){ out.textContent='Enter a name to search.'; return; }
+
+      try{
+        // prefix search on nameNorm using range (startAt/endAt)
+        const playersCol = collection(db, "players");
+        // Use orderBy nameNorm + startAt/endAt; Firestore needs an index for orderBy+startAt sometimes, but single-field should be fine.
+        const q = query(playersCol, orderBy('nameNorm'), startAt(term), endAt(term + '\uf8ff'), limit(25));
+        const snap = await getDocs(q);
+        let results = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+        if (dob) results = results.filter(r => (r.dob||'') === dob);
+
+        if (!results.length){ out.textContent='No matches.'; return; }
+        // render
+        const numberDefault = $('#srch-num').value?Number($('#srch-num').value):undefined;
+        const posDefault = $('#srch-pos').value.split(/\s*,\s*/).filter(Boolean);
+        const ul = document.createElement('ul');
+        ul.style.listStyle='none'; ul.style.padding='0'; ul.style.margin='6px 0';
+        results.forEach(r=>{
+          const li = document.createElement('li');
+          li.style.marginBottom='6px';
+          const already = (data.roster||[]).some(x=>x.playerId===r.id);
+          li.innerHTML = `
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <div><b>${r.first||''} ${r.last||''}</b> — DOB: ${r.dob||''}</div>
+              <div class="small">NSA: ${r.ranks?.nsa||'-'} | SPN: ${r.ranks?.spn||'-'}</div>
+              ${already ? '<span class="small" style="color:#34d399">Already on roster</span>'
+                        : '<button class="btn small" data-add="'+r.id+'">Add to team</button>'}
+            </div>`;
+          ul.appendChild(li);
+        });
+        out.appendChild(ul);
+
+        // wire "Add to team" buttons
+        out.querySelectorAll('button[data-add]').forEach(btn=>{
+          btn.onclick = async ()=>{
+            const pid = btn.getAttribute('data-add');
+            if ((data.roster||[]).some(x=>x.playerId===pid)) return;
+            // Fetch to ensure we have latest
+            const pSnap = await getDoc(doc(db,"players",pid));
+            if (!pSnap.exists()) return;
+            const p = pSnap.data();
+            // use defaults from inputs (can edit later in roster editor if we add one)
+            const roster=[...(data.roster||[]), {
+              playerId: pid, first:p.first||'', last:p.last||'', dob:p.dob||'',
+              number:numberDefault, positions:posDefault,
+              ranks:{ nsa:p.ranks?.nsa||'', spn:p.ranks?.spn||'' }
+            }];
+            await saveTeamDoc({ roster });
+            playerCache.set(pid, p);
+            btn.replaceWith((()=>{ const tag=document.createElement('span'); tag.className='small'; tag.style.color='#34d399'; tag.textContent='Added'; return tag; })());
+          };
+        });
+
+      }catch(e){
+        console.error(e);
+        out.textContent='Search failed (index?). Try shorter prefix or remove DOB filter.';
+      }
     };
 
     // scheduler
@@ -250,7 +389,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       if(!date || !home || !away) return alert('Date, Home, Away required');
       const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
       const schedule=[...(data.schedule||[]), { id, date, time, field, comp, home, away }];
-      await saveDoc({ schedule });
+      await saveTeamDoc({ schedule });
       $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
       renderCalendar();
     };
@@ -273,48 +412,44 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#btn-logout').classList.remove('hidden');
     hydrateUI();
   }
+
   function hydrateUI(){
     $('#team-name').value = data.team?.name || '';
     const im=$('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
     renderRoster(); renderStats(); renderCalendar();
   }
 
-  // Roster helpers
-  function onRosterUpload(){
-    const f = $('#roster-file').files && $('#roster-file').files[0]; if(!f) return alert('Choose a CSV file first');
-    const r = new FileReader();
-    r.onload = async () => {
-      const items = csvToObjects(String(r.result));
-      const roster=[...(data.roster||[])];
-      for(const it of items){
-        const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now()+Math.random());
-        const positions=(it.positions||'').split(/\s*,\s*/).filter(Boolean);
-        roster.push({ id, first:it.first||'', last:it.last||'', number:it.number?Number(it.number):undefined, positions, spnRank:'', nsaRank:'' });
-      }
-      await saveDoc({ roster });
-    };
-    r.readAsText(f);
-  }
+  // Render roster table
   function renderRoster(){
     const rows=(data.roster||[]).map(p=>`<tr>
       <td>${p.first} ${p.last}</td>
       <td>${p.number||''}</td>
       <td>${(p.positions||[]).join(', ')}</td>
-      <td>${p.spnRank||''}</td>
-      <td>${p.nsaRank||''}</td>
-      <td class="small">${p.id}</td>
+      <td>${p.dob||''}</td>
+      <td>${p.ranks?.nsa||''}</td>
+      <td>${p.ranks?.spn||''}</td>
+      <td class="small">${p.playerId}</td>
     </tr>`).join('');
     $('#roster-count').textContent = data.roster?.length ? (data.roster.length + ' players') : 'No players';
-    $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>SPN</th><th>NSA</th><th>ID</th></tr></thead><tbody>'+rows+'</tbody>';
+    $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>NSA</th><th>SPN</th><th>ID</th></tr></thead><tbody>'+rows+'</tbody>';
   }
 
-  // Stats (placeholder sortable)
+  // Stats (read from global player profile)
   let sortKey='Player', sortDir='asc';
-  function computeStats(){
-    return (data.roster||[]).map(p => ({ Player:`${p.first} ${p.last}`.trim(), PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, AVG:'0.000', OBP:'0.000', SLG:'0.000', OPS:'0.000' }));
+  function computeStatsRows(){
+    const roster = data.roster||[];
+    return roster.map(r=>{
+      const g = playerCache.get(r.playerId) || {};
+      const s = g.stats || {};
+      return {
+        Player: `${r.first} ${r.last}`.trim(),
+        PA: s.PA||0, AB:s.AB||0, H:s.H||0, '1B':s["1B"]||0, '2B':s["2B"]||0, '3B':s["3B"]||0, HR:s.HR||0, BB:s.BB||0, K:s.K||0,
+        AVG:s.AVG||'0.000', OBP:s.OBP||'0.000', SLG:s.SLG||'0.000', OPS:s.OPS||'0.000'
+      };
+    });
   }
   function renderStats(){
-    let rows=computeStats();
+    let rows=computeStatsRows();
     rows.sort((a,b)=>{const A=a[sortKey],B=b[sortKey];const num=!isNaN(parseFloat(A))&&!isNaN(parseFloat(B));return (sortDir==='asc'?1:-1)*(num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B)));});
     const headers=['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
     const thead='<thead><tr>'+headers.map(h=>`<th class="sort" data-key="${h}">${h}</th>`).join('')+'</tr></thead>';
@@ -351,10 +486,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
   // Small utils
   function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
-  function download(name,text){const b=new Blob([text],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);}
   function csvToObjects(t){const rows=t.split(/\r?\n/).map(r=>r.split(',')).filter(r=>r.some(x=>x));if(!rows.length)return[];const H=rows[0].map(h=>h.toLowerCase());return rows.slice(1).map(r=>{const o={};for(let i=0;i<H.length;i++)o[H[i]]=(r[i]||'').replace(/^"|"$/g,'').trim();return o;});}
-
-  // Boot
   setDbg('ready');
 </script>
 
