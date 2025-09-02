@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R17</title>
+<title>StatsDonkey — R18</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -73,7 +73,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R17</span>
+    <span class="small">BUILD R18</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -146,8 +146,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       <input id="sch-comp" class="input" placeholder="League/Tournament" style="max-width:220px"/>
     </div>
     <div class="row">
-      <input id="sch-home" class="input" placeholder="Home team" style="max-width:220px"/>
-      <input id="sch-away" class="input" placeholder="Away team" style="max-width:220px"/>
+      <select id="sch-ha" class="input" style="max-width:160px">
+        <option value="home">We are Home</option>
+        <option value="away">We are Away</option>
+      </select>
+      <input id="sch-opp" class="input" placeholder="Opponent" style="max-width:260px"/>
       <button id="btn-sch-add" class="btn" type="button">Add game</button>
       <span id="sch-err" class="small bad"></span>
     </div>
@@ -180,7 +183,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   </section>
 </main>
 
-<!-- GAME TRACKER MODAL (unchanged from earlier) -->
+<!-- GAME TRACKER MODAL -->
 <div id="game-modal" role="dialog" aria-modal="true" aria-label="Game tracker">
   <div class="gm-card">
     <div class="gm-head">
@@ -323,7 +326,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     getDocs, query, where, orderBy, startAt, endAt, limit, updateDoc, arrayUnion
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // === Firebase config ===
+  // === Firebase config (from your project) ===
   const firebaseConfig = {
     apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
     authDomain: "statsdonkey-c276c.firebaseapp.com",
@@ -350,12 +353,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     s = String(s).trim();
     if (s.includes('T')) return s.slice(0,10);
     let m;
-    if ((m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/))) {
-      return `${m[1]}-${z2(m[2])}-${z2(m[3])}`;
-    }
-    if ((m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/))) {
-      return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
-    }
+    if ((m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/))) return `${m[1]}-${z2(m[2])}-${z2(m[3])}`;
+    if ((m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/))) return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
     const d = new Date(s);
     if (!isNaN(d)) return `${d.getFullYear()}-${z2(d.getMonth()+1)}-${z2(d.getDate())}`;
     return s;
@@ -385,10 +384,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       hydrateUI();
       setDbg(`synced • roster:${data.roster.length} • games:${data.schedule.length}`);
       setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule?.length||0} | roster: ${data.roster?.length||0}`);
-    }, (err)=>{
-      console.error('onSnapshot error', err);
-      setDbg('listen-error');
-    });
+    }, (err)=>{ console.error('onSnapshot error', err); setDbg('listen-error'); });
   }
   function stopTeamListener(){ if (unsubTeam){ unsubTeam(); unsubTeam=null; } }
   async function saveTeamDoc(patch){ await setDoc(doc(db, "teams", teamDocId), patch?patch:data, { merge:true }); }
@@ -419,8 +415,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         teamDocId = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
         await ensureTeamSeed(team);
         route(true); startTeamListener();
-        setDbg('authless:ok');
-        setNav(`team: ${team} | games: 0 | roster: 0`);
+        setDbg('authless:ok'); setNav(`team: ${team} | games: 0 | roster: 0`);
       }catch(e){ console.error(e); err.textContent='Login failed (config/rules).'; }
     };
     $('#btn-logout').onclick = ()=>{ stopTeamListener(); stopGameListener(); currentGameId=null; currentGame=null; route(false); setNav(''); };
@@ -458,6 +453,14 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-btn-opp-add').onclick = ()=> addOpponentPlayer($('#gm-opp-add').value.trim());
     $('#gm-save-pregame').onclick = savePregame;
 
+    // Team profile save + logo preview
+    $('#team-logo').addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0]; if (!f) return;
+      const url = await fileToDataURL(f);
+      $('#logo-preview').src = url; $('#logo-preview').style.display='block';
+    });
+    $('#btn-save-team').onclick = saveTeamProfile;
+
     setDbg('ready');
   })();
 
@@ -477,6 +480,23 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#team-name').value = data.team?.name || '';
     const im=$('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
     renderRoster(); renderStats(); renderCalendar(); renderScheduleList();
+  }
+
+  // ---------- Team profile ----------
+  async function fileToDataURL(file){
+    return new Promise((res,rej)=>{
+      const r = new FileReader();
+      r.onload = ()=> res(String(r.result));
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  }
+  async function saveTeamProfile(){
+    const name = $('#team-name').value.trim();
+    const file = $('#team-logo').files?.[0];
+    let logo = data.team?.logo || '';
+    if (file) logo = await fileToDataURL(file);
+    await saveTeamDoc({ team: { ...(data.team||{}), name, logo } });
   }
 
   // ---------- Roster ----------
@@ -513,7 +533,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   async function removeFromRoster(pid){
     if(!pid) return;
     if(!confirm('Remove this player from the team roster? This does not delete their global profile.')) return;
-    // optimistic update
     data.roster = (data.roster||[]).filter(r=>r.playerId!==pid);
     renderRoster();
     await saveTeamDoc({ roster: data.roster });
@@ -553,34 +572,79 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       });
     }catch(e){ console.error(e); out.textContent='Search failed.'; }
   }
+  function renderRoster(){
+    const rows=(data.roster||[]).map(p=>`<tr>
+      <td>${p.first} ${p.last}</td>
+      <td>${p.number||''}</td>
+      <td>${(p.positions||[]).join(', ')}</td>
+      <td>${p.dob||''}</td>
+      <td>${p.ranks?.nsa||''}</td>
+      <td>${p.ranks?.spn||''}</td>
+      <td class="small">${p.playerId}</td>
+      <td><button class="btn outline small" data-del-pid="${p.playerId}">Remove</button></td>
+    </tr>`).join('');
+    $('#roster-count').textContent = data.roster?.length ? (data.roster.length + ' players') : 'No players';
+    $('#tbl-roster').innerHTML='<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>NSA</th><th>SPN</th><th>ID</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody>';
+    $$('#tbl-roster button[data-del-pid]').forEach(btn=>{
+      btn.onclick = ()=> removeFromRoster(btn.getAttribute('data-del-pid'));
+    });
+  }
+
+  // ---------- Stats (simple view using global player doc) ----------
+  function renderStats(){
+    const headers = ['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
+    const body = (data.roster||[]).map(r=>{
+      const p = playerCache.get(r.playerId) || {};
+      const s = p.stats || {};
+      const nm = `${r.first||''} ${r.last||''}`.trim();
+      return `<tr>
+        <td>${nm}</td><td>${s.PA||0}</td><td>${s.AB||0}</td><td>${s.H||0}</td>
+        <td>${s['1B']||0}</td><td>${s['2B']||0}</td><td>${s['3B']||0}</td>
+        <td>${s.HR||0}</td><td>${s.BB||0}</td><td>${s.K||0}</td>
+        <td>${s.AVG||'0.000'}</td><td>${s.OBP||'0.000'}</td><td>${s.SLG||'0.000'}</td><td>${s.OPS||'0.000'}</td>
+      </tr>`;
+    }).join('');
+    $('#tbl-stats').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody>`;
+  }
 
   // ---------- Scheduler & Calendar ----------
   async function onAddSchedule(){
     $('#sch-err').textContent='';
-    const dateRaw=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
-    const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
-    const date = normDate(dateRaw);
-    if(!date || !home || !away){ $('#sch-err').textContent='Date, Home, Away required'; return; }
+    const date = normDate($('#sch-date').value);
+    const time = $('#sch-time').value;
+    const field = $('#sch-field').value.trim();
+    const comp  = $('#sch-comp').value.trim();
+    const ha    = $('#sch-ha').value; // 'home' | 'away'
+    const opp   = $('#sch-opp').value.trim();
+    const our   = (data.team?.name || $('#team-name').value || '').trim();
+
+    if(!date || !opp || !our){
+      $('#sch-err').textContent = 'Date + Opponent + Team required. Set your Team name in the Team profile.';
+      return;
+    }
+
+    const home = (ha === 'home') ? our : opp;
+    const away = (ha === 'home') ? opp : our;
+
     const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
     const newGame = { id, date, time, field, comp, home, away };
 
-    // optimistic update (update UI immediately)
+    // optimistic update
     data.schedule = [...(data.schedule||[]), newGame];
     renderScheduleList(); renderCalendar();
 
     try{
       await saveTeamDoc({ schedule: data.schedule });
-      setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
+      setNav(`team: ${data.team?.name||our} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
     }catch(e){
       console.error(e);
       $('#sch-err').textContent='Save failed — check Firestore rules/config.';
-      // revert optimistic add on failure
       data.schedule = data.schedule.filter(g=>g.id!==id);
       renderScheduleList(); renderCalendar();
     }
 
-    // keep some fields for quick multiple adds
-    $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
+    // keep date; clear rest for quick adds
+    $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value=''; $('#sch-opp').value='';
   }
 
   function getScheduleArray(){ return Array.isArray(data.schedule) ? data.schedule : asArray(data.schedule); }
@@ -607,7 +671,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   async function deleteSchedule(sid){
     if(!sid) return;
     if(!confirm('Delete this game from the schedule?')) return;
-    // optimistic
     const before = data.schedule;
     data.schedule = getScheduleArray().filter(g=>g.id!==sid);
     renderCalendar(); renderScheduleList();
@@ -616,7 +679,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
     }catch(e){
       console.error(e);
-      // revert on failure
       data.schedule = before;
       renderCalendar(); renderScheduleList();
       alert('Delete failed — check Firestore rules/config.');
@@ -657,7 +719,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     }
   }
 
-  // ---------- Game modal (unchanged core behavior) ----------
+  // ---------- Game modal ----------
   async function openGameModalFromSchedule(g, dateStr){
     const our = data.team?.name?.trim() || '';
     let isHome = true, opponent = g.away || 'Opponent';
@@ -688,6 +750,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#game-modal').style.display='flex';
     setGameTab('setup');
   }
+
   function closeGameModal(){
     $('#game-modal').style.display='none';
     stopGameListener();
@@ -707,7 +770,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     });
   }
 
-  // --- helpers reused from R16 (unchanged) ---
   function updateGameHeader(){
     if(!currentGame) return;
     const title = `${currentGame.meta?.date||'?'} • ${currentGame.meta?.isHome?'Home':'Away'} vs ${currentGame.meta?.opponent||'?'}`;
@@ -784,6 +846,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-pregame-msg').textContent='Saved. Game is LIVE.';
     setTimeout(()=>$('#gm-pregame-msg').textContent='',2000);
   }
+
+  // ---------- Live ----------
   function updateLiveViews(){
     if(!currentGame) return;
     populateBatterSelect();
