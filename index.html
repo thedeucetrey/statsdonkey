@@ -3,37 +3,35 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R10</title>
+<title>StatsDonkey — R11</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
-.container{max-width:980px;margin:0 auto;padding:16px}
+.container{max-width:1100px;margin:0 auto;padding:16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);padding:var(--pad);box-shadow:0 8px 24px rgba(0,0,0,.25);margin-bottom:var(--pad)}
 .hidden{display:none!important} .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.input,select{width:100%;background:#0b1220;color:var(--fg);border:1px solid #334155;border-radius:12px;padding:12px}
+label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:4px}
+.input,select,textarea{width:100%;background:#0b1220;color:var(--fg);border:1px solid #334155;border-radius:12px;padding:12px}
+textarea{min-height:80px}
 .btn{background:var(--acc);color:#06220f;border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
 .btn.outline{background:transparent;color:var(--acc);border:1px solid var(--acc)} .btn.small{padding:8px 10px;font-size:12px}
-.small{font-size:12px;color:var(--mut)}
+.small{font-size:12px;color:var(--mut)} .bad{color:#f87171}.good{color:#34d399}
 .table{width:100%;border-collapse:separate;border-spacing:0;margin-top:10px}
 .table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
 .table thead th{position:sticky;top:0;background:var(--card);z-index:1}
 .table th.sort{cursor:pointer}
 .scroll{overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}
 .scroll.roster{max-height:50vh} .scroll.stats{max-height:50vh}
-.cal-header{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
-.cell{background:#0b1326;border:1px solid var(--line);border-radius:12px;min-height:84px;padding:6px}
-.cell.head{background:transparent;border:none;text-align:center;font-weight:700}
-.cell.blank{background:transparent;border:none}
-.cell .date{font-weight:800;color:#cbd5e1;margin-bottom:6px}
-.cell .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-.cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px}
 nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
-nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
+nav .wrap{display:flex;align-items:center;gap:10px;max-width:1100px;margin:0 auto;padding:10px 16px}
 .brand{font-weight:800;color:#4ade80} .spacer{flex:1}
-#debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
+#bug{display:flex;gap:12px;align-items:center}
+#bug .pill{background:#0b1326;border:1px solid #1f2937;border-radius:999px;padding:4px 10px;font-weight:700}
+#field{background:#08101f;border:1px solid #1f2937;border-radius:12px;aspect-ratio:1.4/1;position:relative}
+#field svg{width:100%;height:100%}
+#field .drop{position:absolute;transform:translate(-50%,-50%);min-width:110px}
+.basepath{fill:#14532d} .infield{fill:#166534}
 @media (max-width:740px){.container{padding:12px}}
-.bad{color:#f87171}
 </style>
 </head>
 <body>
@@ -41,19 +39,32 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <div class="wrap">
     <div class="brand">StatsDonkey</div>
     <div class="spacer"></div>
-    <span class="small">BUILD R10</span>
+    <div id="bug" class="small">
+      <span class="pill" id="bug-game">No game</span>
+      <span class="pill" id="bug-inning">—</span>
+      <span class="pill" id="bug-score">0–0</span>
+      <span class="pill" id="bug-count">B0 S0 • 0 out</span>
+      <span class="pill" id="bug-bases">Bases: ---</span>
+      <span class="small">R11</span>
+    </div>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
 
 <main class="container">
-  <!-- LOGIN (no Firebase Auth) -->
+  <!-- LOGIN -->
   <section id="view-login" class="card">
     <h2>Team Login</h2>
     <p class="small">Enter <b>Team</b> and <b>Password</b>. First login creates the team. Any device with the same team+password loads the same data.</p>
     <div class="row">
-      <input id="team-id" class="input" placeholder="Team (e.g., Argos)" autocomplete="off" autocapitalize="none" spellcheck="false" style="max-width:280px"/>
-      <input id="team-pass" class="input" type="password" placeholder="Password" autocomplete="new-password" style="max-width:220px"/>
+      <div>
+        <label for="team-id">Team</label>
+        <input id="team-id" class="input" placeholder="Argos" autocomplete="off" autocapitalize="none" spellcheck="false" style="max-width:280px"/>
+      </div>
+      <div>
+        <label for="team-pass">Password</label>
+        <input id="team-pass" class="input" type="password" placeholder="●●●●●●" autocomplete="new-password" style="max-width:220px"/>
+      </div>
       <button id="btn-login" class="btn" type="button">Log in</button>
     </div>
     <div id="login-error" class="small bad" style="margin-top:6px"></div>
@@ -63,29 +74,33 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <section id="sec-team" class="card hidden">
     <h2>1) Team profile</h2>
     <div class="row">
-      <input id="team-name" class="input" placeholder="Team name" style="min-width:260px"/>
-      <input id="team-logo" type="file" accept="image/*" class="input" style="min-width:260px"/>
+      <div style="min-width:260px;flex:1">
+        <label for="team-name">Team name</label>
+        <input id="team-name" class="input" placeholder="Team name"/>
+      </div>
+      <div style="min-width:260px;flex:1">
+        <label for="team-logo">Logo</label>
+        <input id="team-logo" type="file" accept="image/*" class="input"/>
+      </div>
       <button id="btn-save-team" class="btn" type="button">Save profile</button>
     </div>
-    <div class="small">Logo preview:</div>
+    <div class="small" style="margin-top:8px">Logo preview:</div>
     <img id="logo-preview" alt="logo" style="max-width:160px;max-height:160px;border:1px solid var(--line);border-radius:12px;display:none"/>
   </section>
 
-  <!-- ROSTER (NEW FORM + SEARCH) -->
+  <!-- ROSTER -->
   <section id="sec-roster" class="card hidden">
     <h2>2) Roster</h2>
-
-    <!-- Add NEW player -->
     <div class="row">
-      <input id="pf-first" class="input" placeholder="First" style="max-width:160px"/>
-      <input id="pf-last" class="input" placeholder="Last" style="max-width:160px"/>
-      <input id="pf-dob" class="input" type="date" placeholder="DOB" style="max-width:160px"/>
-      <input id="pf-pos" class="input" placeholder="Position(s) e.g. SS, 3B, OF" style="max-width:240px"/>
-      <input id="pf-num" class="input" type="number" placeholder="#" style="max-width:90px"/>
+      <div><label for="pf-first">First</label><input id="pf-first" class="input" placeholder="First" style="max-width:160px"/></div>
+      <div><label for="pf-last">Last</label><input id="pf-last" class="input" placeholder="Last" style="max-width:160px"/></div>
+      <div><label for="pf-dob">DOB</label><input id="pf-dob" class="input" type="date" placeholder="YYYY-MM-DD" style="max-width:160px"/></div>
+      <div><label for="pf-pos">Position(s)</label><input id="pf-pos" class="input" placeholder="SS, 3B, OF" style="max-width:220px"/></div>
+      <div><label for="pf-num">#</label><input id="pf-num" class="input" type="number" placeholder="#" style="max-width:100px"/></div>
     </div>
     <div class="row">
-      <input id="pf-nsa" class="input" placeholder="NSA rank" style="max-width:180px"/>
-      <input id="pf-spn" class="input" placeholder="SPN rank" style="max-width:180px"/>
+      <div><label for="pf-nsa">NSA rank</label><input id="pf-nsa" class="input" placeholder="NSA rank" style="max-width:180px"/></div>
+      <div><label for="pf-spn">SPN rank</label><input id="pf-spn" class="input" placeholder="SPN rank" style="max-width:180px"/></div>
       <button id="btn-add-player" class="btn" type="button">Add New Player</button>
       <span id="pf-err" class="small bad"></span>
     </div>
@@ -94,10 +109,22 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
     <!-- Search existing global players -->
     <div class="row">
-      <input id="srch-name" class="input" placeholder="Search existing players by name" style="max-width:360px"/>
-      <input id="srch-dob" class="input" type="date" placeholder="DOB (optional)" style="max-width:180px"/>
-      <input id="srch-num" class="input" type="number" placeholder="# for team" style="max-width:120px"/>
-      <input id="srch-pos" class="input" placeholder="Position(s) for team" style="max-width:220px"/>
+      <div style="flex:1 1 360px">
+        <label for="srch-name">Search existing players by name</label>
+        <input id="srch-name" class="input" placeholder="Type a name (prefix search)"/>
+      </div>
+      <div style="flex:0 1 180px">
+        <label for="srch-dob">DOB (optional)</label>
+        <input id="srch-dob" class="input" type="date" placeholder="YYYY-MM-DD"/>
+      </div>
+      <div style="flex:0 1 120px">
+        <label for="srch-num"># (optional)</label>
+        <input id="srch-num" class="input" type="number" placeholder="# for team"/>
+      </div>
+      <div style="flex:0 1 220px">
+        <label for="srch-pos">Positions (optional)</label>
+        <input id="srch-pos" class="input" placeholder="SS,OF"/>
+      </div>
       <button id="btn-search" class="btn" type="button">Search</button>
     </div>
     <div id="srch-results" class="small" style="margin-top:6px"></div>
@@ -106,31 +133,145 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="scroll roster"><table class="table" id="tbl-roster"></table></div>
   </section>
 
-  <!-- SCHEDULER -->
-  <section id="sec-schedule" class="card hidden">
-    <h2>3) Scheduler</h2>
+  <!-- PRE-GAME: Lineup + Defense + Opponent -->
+  <section id="sec-setup" class="card hidden">
+    <h2>3) Game setup (lineups & defense)</h2>
     <div class="row">
-      <input id="sch-date" class="input" type="date" style="max-width:170px"/>
-      <input id="sch-time" class="input" type="time" style="max-width:130px"/>
-      <input id="sch-field" class="input" placeholder="Field" style="max-width:180px"/>
-      <input id="sch-comp" class="input" placeholder="League/Tournament" style="max-width:220px"/>
+      <div style="flex:1 1 220px"><label for="gs-date">Date</label><input id="gs-date" class="input" type="date"/></div>
+      <div style="flex:1 1 140px"><label for="gs-time">Time</label><input id="gs-time" class="input" type="time"/></div>
+      <div style="flex:1 1 200px"><label for="gs-field">Field</label><input id="gs-field" class="input" placeholder="Field"/></div>
+      <div style="flex:1 1 220px"><label for="gs-comp">League/Tournament</label><input id="gs-comp" class="input" placeholder="League/Tournament"/></div>
+      <div style="flex:0 0 120px"><label>Home?</label><select id="gs-home" class="input"><option value="true">We are HOME</option><option value="false">We are AWAY</option></select></div>
+      <div style="flex:1 1 240px"><label for="gs-opponent">Opponent</label><input id="gs-opponent" class="input" placeholder="Opponent name"/></div>
     </div>
-    <div class="row">
-      <input id="sch-home" class="input" placeholder="Home team" style="max-width:220px"/>
-      <input id="sch-away" class="input" placeholder="Away team" style="max-width:220px"/>
-      <button id="btn-sch-add" class="btn" type="button">Add game</button>
+
+    <div class="row" style="margin-top:10px">
+      <div class="card" style="flex:1 1 420px">
+        <h3 style="margin-top:0">Our lineup (1–12)</h3>
+        <div id="our-lineup"></div>
+      </div>
+      <div class="card" style="flex:1 1 420px">
+        <h3 style="margin-top:0">Opponent lineup (1–12)</h3>
+        <div id="opp-lineup"></div>
+        <div class="row" style="margin-top:8px">
+          <div><label for="opp-first">First</label><input id="opp-first" class="input" style="max-width:140px"/></div>
+          <div><label for="opp-last">Last</label><input id="opp-last" class="input" style="max-width:140px"/></div>
+          <div><label for="opp-num">#</label><input id="opp-num" class="input" type="number" style="max-width:80px"/></div>
+          <button id="btn-opp-add" class="btn" type="button">Add Opponent</button>
+        </div>
+        <div id="opp-roster" class="small" style="margin-top:6px"></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div class="card" style="flex:1 1 380px">
+        <h3 style="margin-top:0">Defense (our team)</h3>
+        <div id="defense-grid"></div>
+      </div>
+      <div class="card" style="flex:1 1 420px">
+        <h3 style="margin-top:0">Field diagram</h3>
+        <div id="field">
+          <!-- simple diamond -->
+          <svg viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet">
+            <rect x="0" y="0" width="100" height="70" fill="#0b1220"/>
+            <polygon class="basepath" points="50,10 85,35 50,60 15,35"/>
+            <polygon class="infield"  points="50,18 77,35 50,52 23,35"/>
+            <!-- bases -->
+            <circle cx="50" cy="18" r="1.6" fill="#e5e7eb"/>
+            <circle cx="77" cy="35" r="1.6" fill="#e5e7eb"/>
+            <circle cx="23" cy="35" r="1.6" fill="#e5e7eb"/>
+            <circle cx="50" cy="52" r="1.6" fill="#e5e7eb"/>
+          </svg>
+          <!-- drop zones / labels -->
+          <div class="drop" style="left:50%;top:64%" data-pos="C"></div>
+          <div class="drop" style="left:40%;top:56%" data-pos="P"></div>
+          <div class="drop" style="left:33%;top:45%" data-pos="1B"></div>
+          <div class="drop" style="left:67%;top:45%" data-pos="3B"></div>
+          <div class="drop" style="left:50%;top:40%" data-pos="2B"></div>
+          <div class="drop" style="left:56%;top:48%" data-pos="SS"></div>
+          <div class="drop" style="left:15%;top:20%" data-pos="LF"></div>
+          <div class="drop" style="left:50%;top:16%" data-pos="CF"></div>
+          <div class="drop" style="left:85%;top:20%" data-pos="RF"></div>
+          <div class="drop" style="left:68%;top:14%" data-pos="ROV"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <button id="btn-create-game" class="btn" type="button">Create / Update Game</button>
+      <span class="small" id="setup-msg"></span>
     </div>
   </section>
 
-  <!-- CALENDAR -->
-  <section id="sec-calendar" class="card hidden">
-    <h2>4) Calendar</h2>
-    <div class="cal-header">
-      <button id="prev-month" class="btn outline small" type="button">◀</button>
-      <h3 id="cal-title" style="margin:0 10px"></h3>
-      <button id="next-month" class="btn outline small" type="button">▶</button>
+  <!-- GAME TRACKER -->
+  <section id="sec-game" class="card hidden">
+    <h2>4) Live game</h2>
+    <div class="row">
+      <div class="card" style="flex:2 1 460px">
+        <h3 style="margin-top:0">At-bat</h3>
+        <div class="row">
+          <div style="flex:1 1 240px">
+            <div class="small">Batter</div>
+            <div id="gt-batter" style="font-weight:800"></div>
+            <div class="small" id="gt-ondeck"></div>
+          </div>
+          <div style="flex:1 1 200px">
+            <div class="small">Count</div>
+            <div><span id="gt-count">B0 S0</span> • <span id="gt-outs">0 out</span></div>
+            <div class="row" style="margin-top:6px">
+              <button class="btn small" id="btn-ball">Ball</button>
+              <button class="btn small" id="btn-strike">Strike</button>
+              <button class="btn small outline" id="btn-reset-count">Reset</button>
+            </div>
+          </div>
+          <div style="flex:1 1 220px">
+            <div class="small">Bases</div>
+            <div id="gt-bases">--- </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn" data-res="1B">1B</button>
+          <button class="btn" data-res="2B">2B</button>
+          <button class="btn" data-res="3B">3B</button>
+          <button class="btn" data-res="HR">HR</button>
+          <button class="btn" data-res="BB">BB</button>
+          <button class="btn" data-res="K">K</button>
+          <button class="btn" data-res="OUT">Out</button>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1 1 220px">
+            <label for="gt-defense">Defense note (e.g., 6-3, DP)</label>
+            <input id="gt-defense" class="input" placeholder="e.g., 6-3, 4-6-3 DP"/>
+          </div>
+          <div style="flex:1 1 220px">
+            <label for="gt-runners">Runner advances (override)</label>
+            <input id="gt-runners" class="input" placeholder="e.g., 1->3, 2->H, B->1"/>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:10px">
+          <div class="small">Spray chart: click where the ball landed</div>
+          <div id="spray" style="background:#08101f;border:1px solid #1f2937;border-radius:12px;aspect-ratio:1.4/1;position:relative">
+            <svg viewBox="0 0 100 70"><rect x="0" y="0" width="100" height="70" fill="#0b1220"/><polygon class="basepath" points="50,10 85,35 50,60 15,35"/><polygon class="infield"  points="50,18 77,35 50,52 23,35"/><circle cx="50" cy="18" r="1.6" fill="#e5e7eb"/><circle cx="77" cy="35" r="1.6" fill="#e5e7eb"/><circle cx="23" cy="35" r="1.6" fill="#e5e7eb"/><circle cx="50" cy="52" r="1.6" fill="#e5e7eb"/></svg>
+            <div id="spray-dot" style="position:absolute;width:10px;height:10px;background:#4ade80;border-radius:50%;transform:translate(-50%,-50%);display:none"></div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button id="btn-commit" class="btn" type="button">Commit play</button>
+          <button id="btn-undo" class="btn outline" type="button">Undo last</button>
+          <span id="gt-msg" class="small"></span>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1 1 300px">
+        <h3 style="margin-top:0">Box score</h3>
+        <div class="small" id="bx-meta"></div>
+        <table class="table" id="bx-table"></table>
+      </div>
     </div>
-    <div class="cal-grid" id="cal-grid"></div>
   </section>
 
   <!-- STATS -->
@@ -139,22 +280,21 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="scroll stats">
       <table class="table sortable" id="tbl-stats"></table>
     </div>
-    <p class="small">These totals come from the player's global profile (across all teams). We’ll start filling them once the live game logger is in.</p>
+    <p class="small">Totals come from each player's global profile (across teams). The live logger will update these.</p>
   </section>
 </main>
 
 <div id="debug">status: <span id="dbg-status">boot</span></div>
 
-<!-- Modular Firebase via ESM (NO auth) -->
+<!-- Firebase modular ESM (NO auth) -->
 <script type="module">
-  // --- Firebase modular imports from CDN ---
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
   import { getAnalytics, isSupported as analyticsSupported } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-analytics.js";
   import {
-    getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, limit, getDocs, startAt, endAt
+    getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, orderBy, startAt, endAt, limit, getDocs
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // === Your Firebase config (the one you gave) ===
+  // === Your Firebase config (same as before) ===
   const firebaseConfig = {
     apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
     authDomain: "statsdonkey-c276c.firebaseapp.com",
@@ -165,333 +305,94 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     measurementId: "G-T670NG1LYF"
   };
 
-  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
-  try { if (await analyticsSupported()) getAnalytics(app); } catch {}
+  try{ if(await analyticsSupported()) getAnalytics(app); }catch{}
   const db = getFirestore(app);
 
-  // ---- Utilities & globals ----
+  // ===== Utilities, globals
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
   const setDbg = s => { const el = $('#dbg-status'); if (el) el.textContent = s; };
-  let teamDocId = null, unsub = null;
-  let data = { team:{ name:'', logo:'' }, roster:[], schedule:[], stats:{} };
-  let calCurrent = new Date();
 
-  // cache of global players for quick stats/labels
-  const playerCache = new Map(); // id -> playerDocData
+  let teamDocId=null, unsubTeam=null, unsubGame=null;
+  let data={ team:{name:'',logo:''}, roster:[], schedule:[], stats:{} };
+  let playerCache=new Map();
+  let currentGameId=null, game={}; // live game doc
 
-  // sha256 helpers
-  async function sha256Hex(text){
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  }
-  async function teamIdHash(team, pass){
-    return sha256Hex((team||'').trim().toLowerCase() + '|' + (pass||''));
-  }
-  async function playerIdFor(first, last, dob){
-    const f=(first||'').trim().toLowerCase(), l=(last||'').trim().toLowerCase();
-    const d=(dob||'').trim(); // YYYY-MM-DD
-    return sha256Hex(`${f}|${l}|${d}`);
-  }
-  function nameNorm(first,last){ return `${(first||'').trim().toLowerCase()} ${(last||'').trim().toLowerCase()}`.trim(); }
+  // Hash helpers
+  async function sha256Hex(text){ const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+  async function teamIdHash(team, pass){ return sha256Hex((team||'').trim().toLowerCase() + '|' + (pass||'')); }
+  async function playerIdFor(f,l,d){ return sha256Hex(`${(f||'').trim().toLowerCase()}|${(l||'').trim().toLowerCase()}|${(d||'').trim()}`); }
 
-  // Listener & saves
-  function startListener(){
-    stopListener();
-    const ref = doc(db, "teams", teamDocId);
-    unsub = onSnapshot(ref, async snap=>{
-      if (snap.exists()){
+  function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
+
+  // ===== Team doc listener
+  function startTeamListener(){
+    stopTeamListener();
+    unsubTeam = onSnapshot(doc(db,'teams',teamDocId), async snap=>{
+      if(snap.exists()){
         data = snap.data();
-        setDbg('live:'+ (data.team?.name||''));
-        // ensure we have player docs cached for this roster
         await preloadRosterPlayers();
-        hydrateUI();
+        hydrateBasics();
       }
-    }, err => { setDbg('live-error'); console.error(err); });
+    }, err=>console.error(err));
   }
-  function stopListener(){ if (unsub){ unsub(); unsub=null; } }
+  function stopTeamListener(){ if (unsubTeam){unsubTeam();unsubTeam=null;} }
+  async function saveTeamDoc(patch){ await setDoc(doc(db,'teams',teamDocId), patch?patch:data, {merge:true}); }
   async function ensureTeamSeed(team){
-    const ref = doc(db, "teams", teamDocId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()){
-      await setDoc(ref, { team:{ name: team, logo:'' }, roster:[], schedule:[], stats:{} }, { merge:true });
-    } else {
-      const cur = snap.data();
-      if (!cur.team || !cur.team.name){
-        await setDoc(ref, { team:{ name: team } }, { merge:true });
-      }
-    }
+    const ref=doc(db,'teams',teamDocId); const s=await getDoc(ref);
+    if(!s.exists()) await setDoc(ref,{team:{name:team,logo:''}, roster:[], schedule:[], stats:{}}, {merge:true});
   }
-  async function saveTeamDoc(patch){ await setDoc(doc(db, "teams", teamDocId), patch ? patch : data, { merge:true }); }
 
   async function preloadRosterPlayers(){
-    const ids = Array.from(new Set((data.roster||[]).map(r=>r.playerId).filter(Boolean)));
-    await Promise.all(ids.map(async id=>{
-      if (playerCache.has(id)) return;
-      const snap = await getDoc(doc(db, "players", id));
-      if (snap.exists()) playerCache.set(id, snap.data());
-    }));
+    const ids=[...new Set((data.roster||[]).map(r=>r.playerId).filter(Boolean))];
+    await Promise.all(ids.map(async id=>{ if(playerCache.has(id)) return; const s=await getDoc(doc(db,'players',id)); if(s.exists()) playerCache.set(id,s.data()); }));
   }
 
-  // ---- UI wiring ----
+  // ===== Game doc listener
+  function startGameListener(gameId){
+    stopGameListener();
+    currentGameId=gameId;
+    const ref=doc(db,'teams',teamDocId,'games',gameId);
+    unsubGame = onSnapshot(ref, snap=>{
+      if(snap.exists()){
+        game = snap.data();
+        renderBug(); renderBox(); renderAtBat();
+      }
+    }, err=>console.error(err));
+  }
+  function stopGameListener(){ if (unsubGame){unsubGame();unsubGame=null;} }
+  async function saveGame(patch){
+    const ref=doc(db,'teams',teamDocId,'games',currentGameId);
+    await setDoc(ref, patch?patch:game, {merge:true});
+  }
+
+  // ===== UI boot
   (function initUI(){
     // login
-    $('#btn-login').onclick = async () => {
-      const team = $('#team-id').value.trim();
-      const pass = $('#team-pass').value;
-      const err = $('#login-error'); err.textContent='';
-      if (!team || !pass){ err.textContent='Enter team and password.'; return; }
+    $('#btn-login').onclick = async ()=>{
+      const team=$('#team-id').value.trim(); const pass=$('#team-pass').value;
+      const err=$('#login-error'); err.textContent='';
+      if(!team||!pass){err.textContent='Enter team and password.';return;}
       try{
-        teamDocId = await teamIdHash(team, pass);
+        teamDocId=await teamIdHash(team,pass);
         await ensureTeamSeed(team);
-        route(true); startListener();
-        setDbg('authless:ok');
-      }catch(e){
-        console.error(e); err.textContent='Login failed. Check Firebase config / rules.'; setDbg('authless:error');
-      }
+        route(true); startTeamListener();
+        setDbg('ok');
+      }catch(e){ err.textContent='Login failed.'; console.error(e); }
     };
-    $('#btn-logout').onclick = () => { stopListener(); teamDocId=null; route(false); };
+    $('#btn-logout').onclick = ()=>{ stopTeamListener(); stopGameListener(); teamDocId=null; route(false); };
 
-    // team profile
-    $('#btn-save-team').onclick = async () => {
-      const name = $('#team-name').value.trim() || (data.team?.name || '');
-      await saveTeamDoc({ team: { ...(data.team||{}), name } });
-      alert('Profile saved');
+    // profile
+    $('#btn-save-team').onclick = async ()=>{
+      const name=$('#team-name').value.trim()||(data.team?.name||''); await saveTeamDoc({team:{...(data.team||{}), name}}); alert('Profile saved');
     };
     $('#team-logo').onchange = (ev)=>{
-      const f = ev.target.files && ev.target.files[0]; if(!f) return;
-      const r = new FileReader();
-      r.onload = async () => { await saveTeamDoc({ team: { ...(data.team||{}), logo: r.result } }); };
-      r.readAsDataURL(f);
+      const f=ev.target.files?.[0]; if(!f) return;
+      const r=new FileReader(); r.onload=async()=>{ await saveTeamDoc({team:{...(data.team||{}), logo:r.result}}); }; r.readAsDataURL(f);
     };
 
-    // add NEW player
+    // roster add
     $('#btn-add-player').onclick = async ()=>{
-      $('#pf-err').textContent = '';
-      const first=$('#pf-first').value.trim(), last=$('#pf-last').value.trim();
-      const dob=$('#pf-dob').value; // YYYY-MM-DD
-      const positions=$('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
-      const number=$('#pf-num').value?Number($('#pf-num').value):undefined;
-      const nsa=$('#pf-nsa').value.trim(), spn=$('#pf-spn').value.trim();
-      if(!first || !last || !dob){ $('#pf-err').textContent='First, Last, and DOB are required.'; return; }
-
-      try{
-        const pid = await playerIdFor(first,last,dob);
-
-        // Prevent duplicate on THIS team
-        const existsOnTeam = (data.roster||[]).some(r => r.playerId === pid);
-        if (existsOnTeam){ $('#pf-err').textContent='Player already on this roster.'; return; }
-
-        // Upsert global player profile (id based on name+dob)
-        const pRef = doc(db, "players", pid);
-        const pSnap = await getDoc(pRef);
-        if (!pSnap.exists()){
-          await setDoc(pRef, {
-            first, last, dob,
-            nameNorm: nameNorm(first,last),
-            ranks: { nsa, spn },
-            // Aggregated career stats; fill later via game logger
-            stats: { PA:0, AB:0, H:0, "1B":0, "2B":0, "3B":0, HR:0, BB:0, K:0, AVG:"0.000", OBP:"0.000", SLG:"0.000", OPS:"0.000" },
-            createdAt: new Date().toISOString()
-          }, { merge:true });
-        } else {
-          // Optional: update ranks if provided
-          const cur = pSnap.data()||{};
-          const ranks = { ...(cur.ranks||{}) };
-          if (nsa) ranks.nsa = nsa;
-          if (spn) ranks.spn = spn;
-          await setDoc(pRef, { ranks }, { merge:true });
-        }
-        playerCache.set(pid, (await getDoc(pRef)).data());
-
-        // Add to team roster (store team-specific jersey & positions + surface ranks)
-        const roster=[...(data.roster||[]), {
-          playerId: pid, first, last, dob, number, positions, ranks:{ nsa, spn }
-        }];
-        await saveTeamDoc({ roster });
-
-        // clear fields
-        ['pf-first','pf-last','pf-dob','pf-pos','pf-num','pf-nsa','pf-spn'].forEach(id=>{ const el=$( '#'+id ); if(el) el.value=''; });
-      }catch(e){
-        console.error(e); $('#pf-err').textContent='Add failed.';
-      }
-    };
-
-    // search existing global players
-    $('#btn-search').onclick = async ()=>{
-      const term = $('#srch-name').value.trim().toLowerCase();
-      const dob = $('#srch-dob').value; // optional
-      const out = $('#srch-results'); out.innerHTML='';
-      if(!term){ out.textContent='Enter a name to search.'; return; }
-
-      try{
-        // prefix search on nameNorm using range (startAt/endAt)
-        const playersCol = collection(db, "players");
-        // Use orderBy nameNorm + startAt/endAt; Firestore needs an index for orderBy+startAt sometimes, but single-field should be fine.
-        const q = query(playersCol, orderBy('nameNorm'), startAt(term), endAt(term + '\uf8ff'), limit(25));
-        const snap = await getDocs(q);
-        let results = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-        if (dob) results = results.filter(r => (r.dob||'') === dob);
-
-        if (!results.length){ out.textContent='No matches.'; return; }
-        // render
-        const numberDefault = $('#srch-num').value?Number($('#srch-num').value):undefined;
-        const posDefault = $('#srch-pos').value.split(/\s*,\s*/).filter(Boolean);
-        const ul = document.createElement('ul');
-        ul.style.listStyle='none'; ul.style.padding='0'; ul.style.margin='6px 0';
-        results.forEach(r=>{
-          const li = document.createElement('li');
-          li.style.marginBottom='6px';
-          const already = (data.roster||[]).some(x=>x.playerId===r.id);
-          li.innerHTML = `
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <div><b>${r.first||''} ${r.last||''}</b> — DOB: ${r.dob||''}</div>
-              <div class="small">NSA: ${r.ranks?.nsa||'-'} | SPN: ${r.ranks?.spn||'-'}</div>
-              ${already ? '<span class="small" style="color:#34d399">Already on roster</span>'
-                        : '<button class="btn small" data-add="'+r.id+'">Add to team</button>'}
-            </div>`;
-          ul.appendChild(li);
-        });
-        out.appendChild(ul);
-
-        // wire "Add to team" buttons
-        out.querySelectorAll('button[data-add]').forEach(btn=>{
-          btn.onclick = async ()=>{
-            const pid = btn.getAttribute('data-add');
-            if ((data.roster||[]).some(x=>x.playerId===pid)) return;
-            // Fetch to ensure we have latest
-            const pSnap = await getDoc(doc(db,"players",pid));
-            if (!pSnap.exists()) return;
-            const p = pSnap.data();
-            // use defaults from inputs (can edit later in roster editor if we add one)
-            const roster=[...(data.roster||[]), {
-              playerId: pid, first:p.first||'', last:p.last||'', dob:p.dob||'',
-              number:numberDefault, positions:posDefault,
-              ranks:{ nsa:p.ranks?.nsa||'', spn:p.ranks?.spn||'' }
-            }];
-            await saveTeamDoc({ roster });
-            playerCache.set(pid, p);
-            btn.replaceWith((()=>{ const tag=document.createElement('span'); tag.className='small'; tag.style.color='#34d399'; tag.textContent='Added'; return tag; })());
-          };
-        });
-
-      }catch(e){
-        console.error(e);
-        out.textContent='Search failed (index?). Try shorter prefix or remove DOB filter.';
-      }
-    };
-
-    // scheduler
-    $('#btn-sch-add').onclick = async ()=>{
-      const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
-      const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
-      if(!date || !home || !away) return alert('Date, Home, Away required');
-      const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
-      const schedule=[...(data.schedule||[]), { id, date, time, field, comp, home, away }];
-      await saveTeamDoc({ schedule });
-      $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
-      renderCalendar();
-    };
-
-    // calendar nav
-    $('#prev-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); };
-    $('#next-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); };
-
-    setDbg('ready');
-  })();
-
-  function route(on){
-    if(!on){
-      show($('#view-login'));
-      hide($('#sec-team')); hide($('#sec-roster')); hide($('#sec-schedule')); hide($('#sec-calendar')); hide($('#sec-stats'));
-      $('#btn-logout').classList.add('hidden'); return;
-    }
-    hide($('#view-login'));
-    show($('#sec-team')); show($('#sec-roster')); show($('#sec-schedule')); show($('#sec-calendar')); show($('#sec-stats'));
-    $('#btn-logout').classList.remove('hidden');
-    hydrateUI();
-  }
-
-  function hydrateUI(){
-    $('#team-name').value = data.team?.name || '';
-    const im=$('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
-    renderRoster(); renderStats(); renderCalendar();
-  }
-
-  // Render roster table
-  function renderRoster(){
-    const rows=(data.roster||[]).map(p=>`<tr>
-      <td>${p.first} ${p.last}</td>
-      <td>${p.number||''}</td>
-      <td>${(p.positions||[]).join(', ')}</td>
-      <td>${p.dob||''}</td>
-      <td>${p.ranks?.nsa||''}</td>
-      <td>${p.ranks?.spn||''}</td>
-      <td class="small">${p.playerId}</td>
-    </tr>`).join('');
-    $('#roster-count').textContent = data.roster?.length ? (data.roster.length + ' players') : 'No players';
-    $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>NSA</th><th>SPN</th><th>ID</th></tr></thead><tbody>'+rows+'</tbody>';
-  }
-
-  // Stats (read from global player profile)
-  let sortKey='Player', sortDir='asc';
-  function computeStatsRows(){
-    const roster = data.roster||[];
-    return roster.map(r=>{
-      const g = playerCache.get(r.playerId) || {};
-      const s = g.stats || {};
-      return {
-        Player: `${r.first} ${r.last}`.trim(),
-        PA: s.PA||0, AB:s.AB||0, H:s.H||0, '1B':s["1B"]||0, '2B':s["2B"]||0, '3B':s["3B"]||0, HR:s.HR||0, BB:s.BB||0, K:s.K||0,
-        AVG:s.AVG||'0.000', OBP:s.OBP||'0.000', SLG:s.SLG||'0.000', OPS:s.OPS||'0.000'
-      };
-    });
-  }
-  function renderStats(){
-    let rows=computeStatsRows();
-    rows.sort((a,b)=>{const A=a[sortKey],B=b[sortKey];const num=!isNaN(parseFloat(A))&&!isNaN(parseFloat(B));return (sortDir==='asc'?1:-1)*(num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B)));});
-    const headers=['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
-    const thead='<thead><tr>'+headers.map(h=>`<th class="sort" data-key="${h}">${h}</th>`).join('')+'</tr></thead>';
-    const tbody='<tbody>'+rows.map(r=>'<tr>'+headers.map(h=>`<td>${r[h]}</td>`).join('')+'</tr>').join('')+'</tbody>';
-    $('#tbl-stats').innerHTML=thead+tbody;
-    $$('#tbl-stats th.sort').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.key;if(sortKey===key) sortDir=(sortDir==='asc'?'desc':'asc'); else{sortKey=key;sortDir='asc';} renderStats();}));
-  }
-
-  // Calendar
-  function renderCalendar(){
-    const m0=new Date(calCurrent.getFullYear(), calCurrent.getMonth(), 1);
-    const m1=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 0);
-    $('#cal-title').textContent = m0.toLocaleString(undefined,{month:'long',year:'numeric'});
-    const first=m0.getDay(), days=m1.getDate();
-    const grid=$('#cal-grid'); grid.innerHTML='';
-    const daysHdr=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    for(const dd of daysHdr){ const h=document.createElement('div'); h.className='cell head'; h.textContent=dd; grid.appendChild(h); }
-    for(let i=0;i<first;i++){ const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b); }
-    for(let day=1; day<=days; day++){
-      const cell=document.createElement('div'); cell.className='cell';
-      const ds=`${m0.getFullYear()}-${String(m0.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
-      const ul=document.createElement('ul'); ul.className='events';
-      const items=(data.schedule||[]).filter(g=>String(g.date)===ds);
-      for(const g of items){
-        const li=document.createElement('li');
-        const home=g.home||'Home', away=g.away||'Away', time=g.time||'', field=g.field?(' @ '+g.field):'', comp=g.comp?(' — '+g.comp):'';
-        li.textContent=(`${time} ${home} vs ${away}${field}${comp}`).trim();
-        ul.appendChild(li);
-      }
-      cell.appendChild(ul); grid.appendChild(cell);
-    }
-  }
-
-  // Small utils
-  function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
-  function csvToObjects(t){const rows=t.split(/\r?\n/).map(r=>r.split(',')).filter(r=>r.some(x=>x));if(!rows.length)return[];const H=rows[0].map(h=>h.toLowerCase());return rows.slice(1).map(r=>{const o={};for(let i=0;i<H.length;i++)o[H[i]]=(r[i]||'').replace(/^"|"$/g,'').trim();return o;});}
-  setDbg('ready');
-</script>
-
-<noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
-JavaScript is disabled. Enable it to use StatsDonkey.
-</div></noscript>
-</body>
-</html>
+      $('#pf-err').textContent='';
+      const first=$('#pf-first').value.trim(), last=$('#pf-last').value.trim
