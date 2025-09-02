@@ -45,13 +45,15 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 </nav>
 
 <main class="container">
-  <!-- LOGIN (team + password) -->
+  <!-- LOGIN -->
   <section id="view-login" class="card">
     <h2>Team Login</h2>
-    <p class="small">Example: <b>Argos</b> / <b>1234</b> (first login creates the team).</p>
+    <p class="small">Enter a team name (e.g., Argos) <i>or</i> an email. First login creates the team.</p>
     <div class="row">
-      <input id="team-key" class="input" placeholder="Team name (e.g., Argos)" autocomplete="off" autocapitalize="none" spellcheck="false" style="max-width:260px"/>
-      <input id="team-pass" class="input" type="password" placeholder="Team password" autocomplete="new-password" style="max-width:220px"/>
+      <input id="login-id" class="input" placeholder="Team (e.g., Argos) or email"
+             autocomplete="off" autocapitalize="none" spellcheck="false" style="max-width:280px"/>
+      <input id="login-pass" class="input" type="password" placeholder="Password"
+             autocomplete="new-password" style="max-width:220px"/>
       <button id="btn-login" class="btn" type="button">Log in</button>
     </div>
     <div id="login-error" class="small" style="color:#f87171;margin-top:6px"></div>
@@ -69,7 +71,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <img id="logo-preview" alt="logo" style="max-width:160px;max-height:160px;border:1px solid var(--line);border-radius:12px;display:none"/>
   </section>
 
-  <!-- ROSTER UPLOAD + TABLE -->
+  <!-- ROSTER -->
   <section id="sec-roster" class="card hidden">
     <h2>2) Roster</h2>
     <p class="small">CSV headers: <code>first,last,number,positions</code></p>
@@ -89,7 +91,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="scroll roster"><table class="table" id="tbl-roster"></table></div>
   </section>
 
-  <!-- SCHEDULER (FORM) -->
+  <!-- SCHEDULER -->
   <section id="sec-schedule" class="card hidden">
     <h2>3) Scheduler</h2>
     <div class="row">
@@ -122,110 +124,111 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="scroll stats">
       <table class="table sortable" id="tbl-stats"></table>
     </div>
-    <p class="small">Stats are placeholders for now; we’ll wire live at-bat logging next.</p>
+    <p class="small">Stats are placeholders; we’ll wire the live at-bat logger next.</p>
   </section>
 </main>
 
 <div id="debug">status: <span id="dbg-status">boot</span></div>
 
-<!-- Firebase (no build, straight from CDN) -->
+<!-- Firebase compat (no build tools needed) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 
 <script>
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// ===== PASTE YOUR FIREBASE CONFIG (ONLY EDIT THIS OBJECT) =====
 const firebaseConfig = {
-  apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
-  authDomain: "statsdonkey-c276c.firebaseapp.com",
-  projectId: "statsdonkey-c276c",
-  storageBucket: "statsdonkey-c276c.firebasestorage.app",
-  messagingSenderId: "456849470787",
-  appId: "1:456849470787:web:0479b3dc8ca976296c2bf6",
-  measurementId: "G-T670NG1LYF"
+  apiKey: "PASTE",
+  authDomain: "PASTE.firebaseapp.com",
+  projectId: "PASTE",
+  storageBucket: "PASTE.appspot.com",
+  messagingSenderId: "PASTE",
+  appId: "PASTE"
 };
+// ===============================================================
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-// ==============================================
-
+// ----- DO NOT EDIT BELOW THIS LINE -----
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const setDbg = s => { const el = $('#dbg-status'); if (el) el.textContent = s; };
 
-let app, db, auth, unsub = null, uid = null;
+let fbApp = null, db = null, auth = null, uid = null, unsub = null;
 let data = { team:{ name:'', logo:'' }, roster:[], schedule:[], stats:{} };
 let calCurrent = new Date();
 
-// --- Firebase init
-function initFirebase(){
-  app = firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore();
-  auth = firebase.auth();
-  setDbg('firebase-ready');
-}
-
-// --- Auth: team name + password -> email under the hood
-function teamEmail(team){ return (team || '').trim().toLowerCase() + '@teams.local'; }
-
-async function loginTeam(team, pass){
-  const email = teamEmail(team);
+// Initialize Firebase (compat API — single source of truth)
+(function initFirebase(){
   try{
-    const res = await auth.signInWithEmailAndPassword(email, pass);
-    return res.user;
+    fbApp = firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    auth = firebase.auth();
+    setDbg('firebase-ready');
   }catch(e){
-    if (e.code === 'auth/user-not-found'){
-      const res = await auth.createUserWithEmailAndPassword(email, pass);
-      // seed team doc on first create
-      await db.collection('teams').doc(res.user.uid).set({ team:{ name: team, logo:'' }, roster:[], schedule:[], stats:{} });
-      return res.user;
-    }
-    throw e;
+    console.error(e);
+    setDbg('firebase-init-error');
   }
+})();
+
+// Accept team name OR email; map names to an email behind the scenes
+function resolveEmail(input){
+  const s = (input||'').trim().toLowerCase();
+  if (!s) return '';
+  if (s.includes('@')) return s;
+  return s.replace(/\s+/g,'-') + '@teams.local';
 }
 
-function startTeamListener(){
-  stopTeamListener();
+// Auth flow: sign in, or create team on first login
+async function loginTeam(id, pass){
+  const email = resolveEmail(id);
+  const res = await auth.signInWithEmailAndPassword(email, pass)
+    .catch(async (e) => {
+      if (e.code === 'auth/user-not-found') {
+        const created = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.collection('teams').doc(created.user.uid).set({
+          team:{ name: id, logo:'' }, roster:[], schedule:[], stats:{}
+        });
+        return created;
+      }
+      throw e;
+    });
+  return res.user;
+}
+
+function startListener(){
+  stopListener();
   unsub = db.collection('teams').doc(uid).onSnapshot(snap=>{
-    if (snap.exists){ data = snap.data(); setDbg('live:'+data.team?.name); hydrateUI(); }
+    if (snap.exists){ data = snap.data(); setDbg('live:'+ (data.team?.name||'')); hydrateUI(); }
   }, err => { setDbg('live-error'); console.error(err); });
 }
-function stopTeamListener(){ if (unsub){ unsub(); unsub = null; } }
+function stopListener(){ if (unsub){ unsub(); unsub=null; } }
 
-// --- Save helpers
-async function saveDoc(patch){
-  const ref = db.collection('teams').doc(uid);
-  await ref.set(patch ? patch : data, { merge:true });
-}
+async function saveDoc(patch){ await db.collection('teams').doc(uid).set(patch?patch:data, { merge:true }); }
 
-// --- UI handlers
-function initUI(){
+// UI init & handlers
+(function initUI(){
   $('#btn-login').onclick = async () => {
-    const team = $('#team-key').value.trim();
-    const pass = $('#team-pass').value;
-    $('#login-error').textContent = '';
-    if(!team || !pass){ $('#login-error').textContent = 'Enter team name and password.'; return; }
+    const id = $('#login-id').value.trim();
+    const pass = $('#login-pass').value;
+    const err = $('#login-error'); err.textContent='';
     try{
-      const user = await loginTeam(team, pass);
-      uid = user.uid;
-      route(true);
-      // ensure team name stays synced
-      await saveDoc({ team: { ...(data.team||{}), name: team } });
-      startTeamListener();
+      if (!id || !pass){ err.textContent = 'Enter team and password.'; return; }
+      const user = await loginTeam(id, pass);
+      uid = user.uid; route(true); startListener();
+      await saveDoc({ team: { ...(data.team||{}), name: id } }); // keep name aligned
+      setDbg('auth:ok');
     }catch(e){
-      $('#login-error').textContent = e.message || 'Login failed';
+      console.error('login error', e);
+      setDbg('auth:error');
+      if (e.code === 'auth/operation-not-allowed') err.textContent = 'Enable Email/Password in Firebase Auth.';
+      else if (e.code === 'auth/unauthorized-domain') err.textContent = 'Add your domain in Auth → Settings → Authorized domains.';
+      else if (e.code === 'auth/invalid-email') err.textContent = 'Invalid team/email.';
+      else if (e.code === 'auth/wrong-password') err.textContent = 'Wrong password.';
+      else err.textContent = (e.code || 'error') + ': ' + (e.message || 'Login failed');
     }
   };
+
   $('#btn-logout').onclick = async () => {
-    stopTeamListener(); await auth.signOut(); uid=null; route(false);
+    stopListener(); await auth.signOut(); uid=null; route(false);
   };
 
   $('#btn-save-team').onclick = async () => {
@@ -236,31 +239,29 @@ function initUI(){
   $('#team-logo').onchange = (ev)=>{
     const f = ev.target.files && ev.target.files[0]; if(!f) return;
     const r = new FileReader();
-    r.onload = async () => {
-      await saveDoc({ team: { ...(data.team||{}), logo: r.result } });
-    };
+    r.onload = async () => { await saveDoc({ team: { ...(data.team||{}), logo: r.result } }); };
     r.readAsDataURL(f);
   };
 
   // roster
-  $('#btn-roster-template').onclick = ()=> downloadText('roster-template.csv','first,last,number,positions\nJane,Doe,12,"SS,3B"\nJohn,Smith,7,"OF"');
+  $('#btn-roster-template').onclick = ()=> download('roster-template.csv','first,last,number,positions\nJane,Doe,12,"SS,3B"\nJohn,Smith,7,"OF"');
   $('#btn-roster-upload').onclick = onRosterUpload;
   $('#btn-add-player').onclick = async ()=>{
     const first=$('#pf-first').value.trim(), last=$('#pf-last').value.trim();
     const positions=$('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
     const num=$('#pf-num').value?Number($('#pf-num').value):undefined;
-    if(!first || !last) return alert('First & Last are required');
+    if(!first || !last) return alert('First & Last required');
     const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
     const roster=[...(data.roster||[]), { id, first, last, positions, number:num, spnRank:'', nsaRank:'' }];
     await saveDoc({ roster });
     $('#pf-first').value=''; $('#pf-last').value=''; $('#pf-pos').value=''; $('#pf-num').value='';
   };
 
-  // scheduler
+  // schedule
   $('#btn-sch-add').onclick = async ()=>{
     const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
     const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
-    if(!date || !home || !away) return alert('Date, Home, Away are required');
+    if(!date || !home || !away) return alert('Date, Home, Away required');
     const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
     const schedule=[...(data.schedule||[]), { id, date, time, field, comp, home, away }];
     await saveDoc({ schedule });
@@ -271,14 +272,22 @@ function initUI(){
   // calendar nav
   $('#prev-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); };
   $('#next-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); };
-}
 
-function route(authed){
-  if(!authed){
+  // enter key submits login
+  ['login-id','login-pass'].forEach(id=>{
+    const el = document.getElementById(id);
+    el && el.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-login').click(); });
+  });
+
+  setDbg('ready');
+})();
+
+// Routing
+function route(on){
+  if(!on){
     show($('#view-login'));
     hide($('#sec-team')); hide($('#sec-roster')); hide($('#sec-schedule')); hide($('#sec-calendar')); hide($('#sec-stats'));
-    $('#btn-logout').classList.add('hidden');
-    return;
+    $('#btn-logout').classList.add('hidden'); return;
   }
   hide($('#view-login'));
   show($('#sec-team')); show($('#sec-roster')); show($('#sec-schedule')); show($('#sec-calendar')); show($('#sec-stats'));
@@ -286,14 +295,14 @@ function route(authed){
   hydrateUI();
 }
 
-// --- Hydrate UI
+// Hydrate UI
 function hydrateUI(){
   $('#team-name').value = data.team?.name || '';
   const im=$('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
-  renderRosterTable(); renderStatsTable(); renderCalendar();
+  renderRoster(); renderStats(); renderCalendar();
 }
 
-// --- Roster helpers
+// Roster
 function onRosterUpload(){
   const f = $('#roster-file').files && $('#roster-file').files[0]; if(!f) return alert('Choose a CSV file first');
   const r = new FileReader();
@@ -309,7 +318,7 @@ function onRosterUpload(){
   };
   r.readAsText(f);
 }
-function renderRosterTable(){
+function renderRoster(){
   const rows=(data.roster||[]).map(p=>`<tr>
     <td>${p.first} ${p.last}</td>
     <td>${p.number||''}</td>
@@ -322,22 +331,22 @@ function renderRosterTable(){
   $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>SPN</th><th>NSA</th><th>ID</th></tr></thead><tbody>'+rows+'</tbody>';
 }
 
-// --- Stats (placeholder sortable)
+// Stats (placeholder sortable)
 let sortKey='Player', sortDir='asc';
 function computeStats(){
   return (data.roster||[]).map(p => ({ Player:`${p.first} ${p.last}`.trim(), PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, AVG:'0.000', OBP:'0.000', SLG:'0.000', OPS:'0.000' }));
 }
-function renderStatsTable(){
+function renderStats(){
   let rows=computeStats();
   rows.sort((a,b)=>{const A=a[sortKey],B=b[sortKey];const num=!isNaN(parseFloat(A))&&!isNaN(parseFloat(B));return (sortDir==='asc'?1:-1)*(num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B)));});
   const headers=['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
   const thead='<thead><tr>'+headers.map(h=>`<th class="sort" data-key="${h}">${h}</th>`).join('')+'</tr></thead>';
   const tbody='<tbody>'+rows.map(r=>'<tr>'+headers.map(h=>`<td>${r[h]}</td>`).join('')+'</tr>').join('')+'</tbody>';
   $('#tbl-stats').innerHTML=thead+tbody;
-  $$('#tbl-stats th.sort').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.key;if(sortKey===key) sortDir=(sortDir==='asc'?'desc':'asc'); else{sortKey=key;sortDir='asc';} renderStatsTable();}));
+  $$('#tbl-stats th.sort').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.key;if(sortKey===key) sortDir=(sortDir==='asc'?'desc':'asc'); else{sortKey=key;sortDir='asc';} renderStats();}));
 }
 
-// --- Calendar
+// Calendar
 function renderCalendar(){
   const m0=new Date(calCurrent.getFullYear(), calCurrent.getMonth(), 1);
   const m1=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 0);
@@ -363,19 +372,10 @@ function renderCalendar(){
   }
 }
 
-// --- Small utils
+// Utils
 function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
-function downloadText(name,text){const b=new Blob([text],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);}
+function download(name,text){const b=new Blob([text],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);}
 function csvToObjects(t){const rows=t.split(/\r?\n/).map(r=>r.split(',')).filter(r=>r.some(x=>x));if(!rows.length)return[];const H=rows[0].map(h=>h.toLowerCase());return rows.slice(1).map(r=>{const o={};for(let i=0;i<H.length;i++)o[H[i]]=(r[i]||'').replace(/^"|"$/g,'').trim();return o;});}
-
-// --- Boot
-window.onload = ()=>{
-  try{
-    initFirebase();
-    initUI();
-    setDbg('ready');
-  }catch(e){ setDbg('boot-error'); console.error(e); }
-};
 </script>
 
 <noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
