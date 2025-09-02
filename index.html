@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R18</title>
+<title>StatsDonkey — R19</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -63,8 +63,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
 .runner.sel{outline:2px solid var(--acc)}
 
-#modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:60}
-.modal-card{background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px}
+/* Result modal (now non-blocking, with Save button) */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:60;pointer-events:none}
+#modal .modal-card{background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px;pointer-events:auto}
 </style>
 </head>
 <body>
@@ -73,7 +74,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R18</span>
+    <span class="small">BUILD R19</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -289,7 +290,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   </div>
 </div>
 
-<!-- Result modal -->
+<!-- Result modal (non-blocking) -->
 <div id="modal">
   <div class="modal-card">
     <h3 style="margin-top:0">Play details</h3>
@@ -308,8 +309,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
       </div>
     </div>
-    <p class="small">Now place runners on the bases using the panel next to the diamond, then click <b>Save play</b>.</p>
+    <p class="small">You can still click runners/bases behind this panel. When ready, click <b>Save play</b> here or on the right.</p>
     <div class="row" style="justify-content:flex-end">
+      <button id="md-save" class="btn" type="button">Save play</button>
       <button id="md-close" class="btn outline" type="button">Close</button>
     </div>
   </div>
@@ -326,7 +328,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     getDocs, query, where, orderBy, startAt, endAt, limit, updateDoc, arrayUnion
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // === Firebase config (from your project) ===
+  // === Firebase config ===
   const firebaseConfig = {
     apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
     authDomain: "statsdonkey-c276c.firebaseapp.com",
@@ -445,9 +447,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       pending.result='1B'; pending.hard='Medium';
       $('#modal').style.display='flex';
     });
+    // Modal controls
     $('#md-result').onchange = ()=> pending.result = $('#md-result').value;
     $('#md-hard').onchange   = ()=> pending.hard   = $('#md-hard').value;
     $('#md-close').onclick   = ()=> $('#modal').style.display='none';
+    $('#md-save').onclick    = ()=> { savePlay(); $('#modal').style.display='none'; };
 
     $$('.base').forEach(b=>{ b.onclick = ()=> placeSelectedRunner(b.dataset.base); });
     $('#gm-btn-opp-add').onclick = ()=> addOpponentPlayer($('#gm-opp-add').value.trim());
@@ -523,7 +527,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         await setDoc(pRef,{ranks},{merge:true});
       }
       playerCache.set(pid,(await getDoc(pRef)).data());
-      // optimistic update
       data.roster = [...(data.roster||[]), { playerId:pid, first,last,dob, number, positions, ranks:{nsa,spn} }];
       renderRoster();
       await saveTeamDoc({ roster: data.roster });
@@ -590,7 +593,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     });
   }
 
-  // ---------- Stats (simple view using global player doc) ----------
+  // ---------- Stats ----------
   function renderStats(){
     const headers = ['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
     const body = (data.roster||[]).map(r=>{
@@ -614,7 +617,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const time = $('#sch-time').value;
     const field = $('#sch-field').value.trim();
     const comp  = $('#sch-comp').value.trim();
-    const ha    = $('#sch-ha').value; // 'home' | 'away'
+    const ha    = $('#sch-ha').value;
     const opp   = $('#sch-opp').value.trim();
     const our   = (data.team?.name || $('#team-name').value || '').trim();
 
@@ -629,7 +632,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
     const newGame = { id, date, time, field, comp, home, away };
 
-    // optimistic update
     data.schedule = [...(data.schedule||[]), newGame];
     renderScheduleList(); renderCalendar();
 
@@ -643,7 +645,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       renderScheduleList(); renderCalendar();
     }
 
-    // keep date; clear rest for quick adds
     $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value=''; $('#sch-opp').value='';
   }
 
@@ -770,6 +771,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     });
   }
 
+  // Live helpers
   function updateGameHeader(){
     if(!currentGame) return;
     const title = `${currentGame.meta?.date||'?'} • ${currentGame.meta?.isHome?'Home':'Away'} vs ${currentGame.meta?.opponent||'?'}`;
