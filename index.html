@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R19</title>
+<title>StatsDonkey — R20</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -63,7 +63,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
 .runner.sel{outline:2px solid var(--acc)}
 
-/* Result modal (now non-blocking, with Save button) */
+/* Result modal (non-blocking, with Save button) */
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:60;pointer-events:none}
 #modal .modal-card{background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px;pointer-events:auto}
 </style>
@@ -74,7 +74,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R19</span>
+    <span class="small">BUILD R20</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -266,7 +266,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
             <div class="small" style="margin-bottom:6px">Runners (click to select, then click a base)</div>
             <div class="runners" id="gm-runner-chips"></div>
             <div class="hr"></div>
-            <div class="small" style="margin-bottom:6px">Bases</div>
+            <div class="small" style="margin-bottom:6px">Bases (preview updates live)</div>
             <div class="basegrid">
               <div></div>
               <div class="base" data-base="2B"><b>2B</b><span class="who" id="gm-who-2B">—</span></div>
@@ -309,7 +309,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
       </div>
     </div>
-    <p class="small">You can still click runners/bases behind this panel. When ready, click <b>Save play</b> here or on the right.</p>
+    <p class="small">Place runners using the panel next to the diamond. When ready, click <b>Save play</b> here or on the right.</p>
     <div class="row" style="justify-content:flex-end">
       <button id="md-save" class="btn" type="button">Save play</button>
       <button id="md-close" class="btn outline" type="button">Close</button>
@@ -370,6 +370,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   const playerCache = new Map();
   let currentGameId = null, currentGame = null;
 
+  // pending = unsaved play state (preview)
   let pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null, second:null, third:null }, scored:[] };
 
   // ---------- Team realtime ----------
@@ -433,7 +434,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-tab-live').onclick  = ()=> setGameTab('live');
     $('#gm-close').onclick     = closeGameModal;
 
-    $('#gm-sel-side').onchange = populateBatterSelect;
+    $('#gm-sel-side').onchange = ()=>{ populateBatterSelect(); renderBasesAndRunners(true); };
     $('#gm-btn-advance').onclick = advanceBatter;
     $('#gm-save-play').onclick = savePlay;
     $('#gm-undo').onclick = undoLast;
@@ -443,12 +444,16 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const r = ev.currentTarget.getBoundingClientRect();
       pending.x = ((ev.clientX - r.left) / r.width).toFixed(3);
       pending.y = ((ev.clientY - r.top) / r.height).toFixed(3);
+      // Default result each click
       $('#md-result').value = '1B'; $('#md-hard').value='Medium';
       pending.result='1B'; pending.hard='Medium';
+      // Clear last pending placement preview
+      pending.bases = { first:null, second:null, third:null }; pending.scored = [];
+      renderBasesAndRunners(true);
       $('#modal').style.display='flex';
     });
     // Modal controls
-    $('#md-result').onchange = ()=> pending.result = $('#md-result').value;
+    $('#md-result').onchange = ()=> { pending.result = $('#md-result').value; autoPlaceBatterPreview(); };
     $('#md-hard').onchange   = ()=> pending.hard   = $('#md-hard').value;
     $('#md-close').onclick   = ()=> $('#modal').style.display='none';
     $('#md-save').onclick    = ()=> { savePlay(); $('#modal').style.display='none'; };
@@ -853,7 +858,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   function updateLiveViews(){
     if(!currentGame) return;
     populateBatterSelect();
-    renderBasesAndRunners();
+    renderBasesAndRunners(true);
     updateGameHeader();
     renderBoxScore();
   }
@@ -865,7 +870,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const arr = currentGame[side]?.lineup || [];
     arr.forEach(pid=>{
       const opt=document.createElement('option');
-      opt.value=pid; opt.textContent = (side==='home') ? getHomeName(pid) : pid;
+      opt.value=pid; opt.textContent = (side==='home') ? getHomeName(pid) : getAwayName(pid);
       sel.appendChild(opt);
     });
     const idx = currentGame[side]?.batterIndex || 0;
@@ -882,20 +887,35 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const r=(data.roster||[]).find(x=>x.playerId===pid);
     return r ? `${r.first||''} ${r.last||''}`.trim() : pid;
   }
-  function nameForId(id){ return getHomeName(id); }
-  function renderBasesAndRunners(){
+  function getAwayName(pid){
+    // Away IDs are strings (full names)
+    return String(pid||'').trim() || 'Player';
+  }
+  function nameForId(pid){
+    // Try home first, then away, then raw
+    const r=(data.roster||[]).find(x=>x.playerId===pid);
+    if (r) return `${r.first||''} ${r.last||''}`.trim();
+    return getAwayName(pid);
+  }
+
+  function renderBasesAndRunners(preview=false){
     if(!currentGame) return;
-    const b=currentGame.bases||{first:null,second:null,third:null};
-    $('#gm-who-1B').textContent = b.first ? nameForId(b.first) : '—';
-    $('#gm-who-2B').textContent = b.second? nameForId(b.second): '—';
-    $('#gm-who-3B').textContent = b.third ? nameForId(b.third) : '—';
-    $('#gm-who-H').textContent   = '—';
+    const baseNow = currentGame.bases || { first:null,second:null,third:null };
+    const comb = preview ? Object.assign({first:null,second:null,third:null}, baseNow, pending.bases||{}) : baseNow;
+
+    $('#gm-who-1B').textContent = comb.first ? nameForId(comb.first) : '—';
+    $('#gm-who-2B').textContent = comb.second? nameForId(comb.second): '—';
+    $('#gm-who-3B').textContent = comb.third ? nameForId(comb.third) : '—';
+    $('#gm-who-H').textContent  = (pending.scored&&pending.scored.length) ? ('Scored: '+pending.scored.map(nameForId).join(', ')) : '—';
+
+    // Chips = runners currently on base + current batter
     const chips = [];
-    if (b.first) chips.push({id:b.first, label:nameForId(b.first)});
-    if (b.second)chips.push({id:b.second,label:nameForId(b.second)});
-    if (b.third) chips.push({id:b.third, label:nameForId(b.third)});
+    if (comb.first)  chips.push({id:comb.first,  label:nameForId(comb.first)});
+    if (comb.second) chips.push({id:comb.second, label:nameForId(comb.second)});
+    if (comb.third)  chips.push({id:comb.third,  label:nameForId(comb.third)});
     const batterId = $('#gm-sel-batter').value || 'Batter';
-    chips.push({id:batterId,label:(currentGame.inning?.half==='top' ? batterId : getHomeName(batterId)) || 'Batter'});
+    chips.push({id:batterId, label: nameForId(batterId) || 'Batter'});
+
     const host=$('#gm-runner-chips'); host.innerHTML='';
     chips.forEach(c=>{
       const el=document.createElement('div'); el.className='runner'; el.textContent=c.label; el.dataset.pid=c.id;
@@ -903,10 +923,37 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       host.appendChild(el);
     });
   }
+
+  // Preview helper: auto-place batter for common results unless already placed
+  function autoPlaceBatterPreview(){
+    const batterId = $('#gm-sel-batter').value || null;
+    if (!batterId) return;
+    const alreadyPlaced = ['first','second','third'].some(k => (pending.bases||{})[k]===batterId);
+    if (alreadyPlaced) { renderBasesAndRunners(true); return; }
+    const r = pending.result;
+    if (r==='HR'){
+      pending.scored = Array.from(new Set([...(pending.scored||[]), batterId]));
+      // ensure batter not shown on a base
+      for (const k of ['first','second','third']) if ((pending.bases||{})[k]===batterId) pending.bases[k]=null;
+    } else if (['1B','BB','ROE','FC','SAC'].includes(r)){
+      pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
+      pending.bases.first = batterId;
+    } else if (r==='2B'){
+      pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
+      pending.bases.second = batterId;
+    } else if (r==='3B'){
+      pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
+      pending.bases.third = batterId;
+    }
+    renderBasesAndRunners(true);
+  }
+
   function placeSelectedRunner(base){
     const pid = $('#gm-runner-chips').dataset.sel; if(!pid){ $('#gm-base-msg').textContent='Select a runner first'; return; }
     if (!pending.bases) pending.bases={ first:null,second:null,third:null };
+    // Remove runner from any base they currently occupy in preview
     for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
+
     if (base==='1B') pending.bases.first = pid;
     else if (base==='2B') pending.bases.second = pid;
     else if (base==='3B') pending.bases.third = pid;
@@ -914,22 +961,28 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       if (!pending.scored) pending.scored=[];
       if (!pending.scored.includes(pid)) pending.scored.push(pid);
       for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
-      $('#gm-who-H').textContent='Scored: '+ (currentGame.inning?.half==='top' ? pid : getHomeName(pid));
       $('#gm-base-msg').textContent = 'Marked run';
+      renderBasesAndRunners(true);
       return;
     }
-    const b = Object.assign({ first:null,second:null,third:null }, currentGame.bases, pending.bases);
-    $('#gm-who-1B').textContent = b.first ? nameForId(b.first) : '—';
-    $('#gm-who-2B').textContent = b.second? nameForId(b.second): '—';
-    $('#gm-who-3B').textContent = b.third ? nameForId(b.third) : '—';
-    $('#gm-base-msg').textContent = 'Placed runner on '+base;
+    $('#gm-base-msg').textContent = 'Placed '+nameForId(pid)+' on '+base;
+    renderBasesAndRunners(true);
   }
+
   async function savePlay(){
     if(!currentGameId) return;
     const side = $('#gm-sel-side').value;
     const batter = $('#gm-sel-batter').value || 'Unknown';
-    const after = Object.assign({ first:null,second:null,third:null }, currentGame.bases, pending.bases||{});
+
+    // If user hasn’t placed batter anywhere and didn’t mark HR, auto-place based on result
+    if (batter && !['first','second','third'].some(k => (pending.bases||{})[k]===batter) && !(pending.scored||[]).includes(batter)){
+      autoPlaceBatterPreview();
+    }
+
+    // Build final bases-after = current + pending
+    const after = Object.assign({ first:null,second:null,third:null }, currentGame.bases||{}, pending.bases||{});
     const runs = (pending.scored||[]).length;
+
     const play = {
       ts: new Date().toISOString(),
       batting: side, batter,
@@ -944,10 +997,12 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const len = (currentGame?.[side]?.lineup||[]).length||0;
     const next = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
     await setDoc(ref, { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
+
+    // Reset pending preview
     pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null,second:null,third:null }, scored:[] };
-    $('#modal').style.display='none';
     $('#gm-base-msg').textContent='Play saved';
   }
+
   async function undoLast(){
     if(!currentGameId) return; const ref=doc(db,"teams",teamDocId,"games",currentGameId);
     const snap=await getDoc(ref); if(!snap.exists()) return;
