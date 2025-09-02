@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R20</title>
+<title>StatsDonkey — R21</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -63,7 +63,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
 .runner.sel{outline:2px solid var(--acc)}
 
-/* Result modal (non-blocking, with Save button) */
+/* Result modal */
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:60;pointer-events:none}
 #modal .modal-card{background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px;pointer-events:auto}
 </style>
@@ -74,7 +74,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R20</span>
+    <span class="small">BUILD R21</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -246,7 +246,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           </select>
           <select id="gm-sel-batter" class="input" style="max-width:280px"></select>
           <button id="gm-btn-advance" class="btn outline" type="button">Next batter</button>
-          <span class="small">Click on the diamond to start a play.</span>
+          <span class="small">Click the diamond to start a play.</span>
         </div>
 
         <div id="diamond-wrap" class="row" style="margin-top:8px">
@@ -295,13 +295,22 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <div class="modal-card">
     <h3 style="margin-top:0">Play details</h3>
     <div class="row">
-      <div style="max-width:220px;flex:1 1 220px">
+      <div style="max-width:240px;flex:1 1 240px">
         <label for="md-result">Result</label>
         <select id="md-result" class="input">
-          <option value="1B">Single</option><option value="2B">Double</option><option value="3B">Triple</option>
-          <option value="HR">Home Run</option><option value="BB">Walk</option><option value="K">Strikeout</option>
-          <option value="GO">Groundout</option><option value="FO">Flyout</option><option value="ROE">Reach on Error</option>
-          <option value="FC">Fielder's Choice</option><option value="SAC">Sacrifice</option>
+          <option value="1B">Single</option>
+          <option value="2B">Double</option>
+          <option value="3B">Triple</option>
+          <option value="HR">Home Run</option>
+          <option value="BB">Walk</option>
+          <option value="K">Strikeout</option>
+          <option value="TSF">Third-strike foul</option>
+          <option value="GO">Groundout</option>
+          <option value="FO">Flyout</option>
+          <option value="LO">Lineout</option>
+          <option value="ROE">Reach on Error</option>
+          <option value="FC">Fielder's Choice</option>
+          <option value="SAC">Sacrifice</option>
         </select>
       </div>
       <div style="max-width:180px;flex:1 1 180px">
@@ -309,7 +318,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
       </div>
     </div>
-    <p class="small">Place runners using the panel next to the diamond. When ready, click <b>Save play</b> here or on the right.</p>
+    <p class="small">Place runners with the base panel. Click <b>Save play</b> when ready.</p>
     <div class="row" style="justify-content:flex-end">
       <button id="md-save" class="btn" type="button">Save play</button>
       <button id="md-close" class="btn outline" type="button">Close</button>
@@ -740,7 +749,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     if (found){ startGameListener(found.id); }
     else {
       const id = Date.now().toString(36);
-      const def = { P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,LCF:null,RCF:null,RF:null };
+      const def = baseDefense();
       const seed = {
         meta:{ date:dateStr, opponent, isHome, status:'pregame', createdAt:new Date().toISOString() },
         home:{ lineup:(data.roster||[]).slice(0,10).map(r=>r.playerId), defense:{...def}, batterIndex:0, name:data.team?.name||'Home' },
@@ -776,6 +785,19 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     });
   }
 
+  // ---- Dynamic positions (adds EP slots if lineup > 10)
+  const BASE_POSITIONS=['P','C','1B','2B','3B','SS','LF','LCF','RCF','RF'];
+  function positionsForSide(side){
+    const ln = (currentGame?.[side]?.lineup||[]).length || 10;
+    const extras = Math.max(0, ln - 10);
+    const arr = [...BASE_POSITIONS];
+    for(let i=1;i<=extras;i++) arr.push(`EP${i}`);
+    return arr;
+  }
+  function baseDefense(){
+    const o={}; BASE_POSITIONS.forEach(p=>o[p]=null); return o;
+  }
+
   // Live helpers
   function updateGameHeader(){
     if(!currentGame) return;
@@ -795,7 +817,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-setup').classList.toggle('active', which==='setup');
     $('#gm-live').classList.toggle('active', which==='live');
   }
-  const POSITIONS=['P','C','1B','2B','3B','SS','LF','LCF','RCF','RF'];
   function renderPregameBuilders(){
     if(!currentGame) return;
     renderLineupBuilder('home', data.roster||[], 'gm-lineup-home');
@@ -805,11 +826,29 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     renderDefenseBuilder('away', olist, 'gm-defense-away');
     $('#gm-opp-name').value = currentGame?.meta?.opponent || '';
   }
+
   function renderLineupBuilder(side, rosterLike, mountId){
     const host = document.getElementById(mountId); host.innerHTML='';
-    const arr = currentGame?.[side]?.lineup || [];
+    const arr = (currentGame?.[side]?.lineup && currentGame[side].lineup.length) ? currentGame[side].lineup : new Array(10).fill('');
+    // Controls row
+    const controls=document.createElement('div'); controls.className='row'; controls.style.margin='4px 0';
+    const addBtn=document.createElement('button'); addBtn.className='btn small'; addBtn.type='button'; addBtn.textContent='Add spot';
+    const remBtn=document.createElement('button'); remBtn.className='btn outline small'; remBtn.type='button'; remBtn.textContent='Remove last';
+    controls.appendChild(addBtn); controls.appendChild(remBtn); host.appendChild(controls);
+
+    addBtn.onclick = async ()=>{
+      const next=[...arr, ''];
+      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
+    };
+    remBtn.onclick = async ()=>{
+      const min=10; if (arr.length<=min) return;
+      const next=arr.slice(0,-1);
+      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
+    };
+
+    // Spots
     const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
-    for(let i=0;i<10;i++){
+    for(let i=0;i<arr.length;i++){
       const wrap=document.createElement('div'); wrap.className='row';
       const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
       sel.innerHTML='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
@@ -822,9 +861,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       wrap.appendChild(lab); wrap.appendChild(sel); host.appendChild(wrap);
     }
   }
+
   function renderDefenseBuilder(side, rosterLike, mountId){
     const host=document.getElementById(mountId); host.innerHTML='';
     const def = currentGame?.[side]?.defense || {};
+    const POSITIONS = positionsForSide(side); // base + EPx
     const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
     POSITIONS.forEach(pos=>{
       const row=document.createElement('div'); row.className='row';
@@ -839,6 +880,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       row.appendChild(lab); row.appendChild(sel); host.appendChild(row);
     });
   }
+
   async function addOpponentPlayer(fullname){
     if(!currentGameId || !fullname) return;
     const list=[...((currentGame?.away?.roster)||[])]; list.push(fullname);
@@ -888,11 +930,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     return r ? `${r.first||''} ${r.last||''}`.trim() : pid;
   }
   function getAwayName(pid){
-    // Away IDs are strings (full names)
     return String(pid||'').trim() || 'Player';
   }
   function nameForId(pid){
-    // Try home first, then away, then raw
     const r=(data.roster||[]).find(x=>x.playerId===pid);
     if (r) return `${r.first||''} ${r.last||''}`.trim();
     return getAwayName(pid);
@@ -933,7 +973,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const r = pending.result;
     if (r==='HR'){
       pending.scored = Array.from(new Set([...(pending.scored||[]), batterId]));
-      // ensure batter not shown on a base
       for (const k of ['first','second','third']) if ((pending.bases||{})[k]===batterId) pending.bases[k]=null;
     } else if (['1B','BB','ROE','FC','SAC'].includes(r)){
       pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
@@ -944,14 +983,13 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     } else if (r==='3B'){
       pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
       pending.bases.third = batterId;
-    }
+    } // FO/GO/LO/K/TSF → no auto placement
     renderBasesAndRunners(true);
   }
 
   function placeSelectedRunner(base){
     const pid = $('#gm-runner-chips').dataset.sel; if(!pid){ $('#gm-base-msg').textContent='Select a runner first'; return; }
     if (!pending.bases) pending.bases={ first:null,second:null,third:null };
-    // Remove runner from any base they currently occupy in preview
     for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
 
     if (base==='1B') pending.bases.first = pid;
@@ -974,12 +1012,10 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const side = $('#gm-sel-side').value;
     const batter = $('#gm-sel-batter').value || 'Unknown';
 
-    // If user hasn’t placed batter anywhere and didn’t mark HR, auto-place based on result
     if (batter && !['first','second','third'].some(k => (pending.bases||{})[k]===batter) && !(pending.scored||[]).includes(batter)){
       autoPlaceBatterPreview();
     }
 
-    // Build final bases-after = current + pending
     const after = Object.assign({ first:null,second:null,third:null }, currentGame.bases||{}, pending.bases||{});
     const runs = (pending.scored||[]).length;
 
@@ -998,7 +1034,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const next = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
     await setDoc(ref, { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
 
-    // Reset pending preview
     pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null,second:null,third:null }, scored:[] };
     $('#gm-base-msg').textContent='Play saved';
   }
