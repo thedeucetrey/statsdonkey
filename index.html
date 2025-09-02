@@ -1,582 +1,380 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>StatsDonkey</title>
-  <style>
-    :root{
-      --bg:#0b1220; --card:#0f172a; --fg:#e5e7eb; --mut:#94a3b8; --acc:#4ade80; --line:#1f2937; --err:#f87171;
-      --pad:14px; --rad:16px;
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
-    a{color:inherit}
-    .container{max-width:980px;margin:0 auto;padding:calc(var(--pad) + 6px)}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);padding:var(--pad);box-shadow:0 8px 24px rgba(0,0,0,.25);margin-bottom:var(--pad)}
-    .hidden{display:none !important}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .input,select{width:100%;background:#0b1220;color:var(--fg);border:1px solid #334155;border-radius:12px;padding:12px}
-    .btn{background:var(--acc);color:#06220f;border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
-    .btn.outline{background:transparent;color:var(--acc);border:1px solid var(--acc)}
-    .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
-    .btn.small{padding:8px 10px;font-size:12px}
-    .small{font-size:12px;color:var(--mut)}
-    .error{color:var(--err);margin-top:8px}
-    .brand{font-weight:800;color:var(--acc)}
-    nav{position:sticky;top:0;z-index:30;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
-    nav .wrap{display:flex;align-items:center;gap:10px;padding:10px var(--pad);max-width:980px;margin:0 auto}
-    .spacer{flex:1}
-    .logo-preview img{max-width:160px;max-height:160px;border-radius:12px;border:1px solid var(--line);display:block}
-    code{background:#0b1326;padding:2px 6px;border-radius:6px}
-
-    /* tables */
-    .table{width:100%;border-collapse:separate;border-spacing:0;margin-top:10px}
-    .table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
-    .table thead th{position:sticky;top:0;z-index:1;background:var(--card)}
-    .table th.sort{cursor:pointer}
-
-    /* scrollable boxes */
-    .scroll{overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}
-    .scroll.roster{max-height:50vh}
-    .scroll.stats{max-height:50vh}
-
-    /* suggest dropdown */
-    .suggest{background:#0b1326;border:1px solid var(--line);border-radius:12px;padding:4px;margin:6px 0;max-height:180px;overflow:auto}
-    .suggest .item{padding:8px;border-radius:10px;cursor:pointer}
-    .suggest .item:hover{background:#0f172a}
-
-    /* calendar */
-    .cal-header{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px}
-    .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
-    .cell{background:#0b1326;border:1px solid var(--line);border-radius:12px;min-height:84px;padding:6px}
-    .cell.head{background:transparent;border:none;text-align:center;font-weight:700}
-    .cell.blank{background:transparent;border:none}
-    .cell .date{font-weight:800;color:#cbd5e1;margin-bottom:6px}
-    .cell .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-    .cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px}
-
-    @media (max-width: 740px){
-      .container{padding:12px}
-      .cell{min-height:68px}
-      .cell .events li{font-size:11px}
-    }
-
-    /* debug badge */
-    #debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;color:#cbd5e1;opacity:.9}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>StatsDonkey</title>
+<style>
+:root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--err:#f87171;--pad:14px;--rad:16px}
+*{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.container{max-width:980px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);padding:var(--pad);box-shadow:0 8px 24px rgba(0,0,0,.25);margin-bottom:var(--pad)}
+.hidden{display:none !important} .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.input,select{width:100%;background:#0b1220;color:var(--fg);border:1px solid #334155;border-radius:12px;padding:12px}
+.btn{background:var(--acc);color:#06220f;border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
+.btn.outline{background:transparent;color:var(--acc);border:1px solid var(--acc)} .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.small{padding:8px 10px;font-size:12px} .small{font-size:12px;color:var(--mut)} .error{color:var(--err)}
+nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
+.brand{font-weight:800;color:var(--acc)} .spacer{flex:1}
+#debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
+.table{width:100%;border-collapse:separate;border-spacing:0;margin-top:10px}
+.table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+.table thead th{position:sticky;top:0;background:var(--card);z-index:1}
+.table th.sort{cursor:pointer}
+.scroll{overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}
+.scroll.roster{max-height:50vh} .scroll.stats{max-height:50vh}
+.cal-header{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cell{background:#0b1326;border:1px solid var(--line);border-radius:12px;min-height:84px;padding:6px}
+.cell.head{background:transparent;border:none;text-align:center;font-weight:700}
+.cell.blank{background:transparent;border:none}
+.cell .date{font-weight:800;color:#cbd5e1;margin-bottom:6px}
+.cell .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px}
+@media (max-width:740px){.container{padding:12px}.cell{min-height:68px}.cell .events li{font-size:11px}}
+</style>
 </head>
 <body>
-  <nav>
-    <div class="wrap">
-      <div class="brand">StatsDonkey</div>
-      <div class="spacer"></div>
-      <button id="btn-pull" class="btn outline small" type="button" title="Pull from cloud">Pull</button>
-      <button id="btn-push" class="btn outline small" type="button" title="Push to cloud">Push</button>
-      <label class="small" title="Turn on to sync to your cloud API"><input type="checkbox" id="cloud-sync"> Cloud Sync</label>
-      <button id="btn-logout" class="btn outline small hidden" type="button">Logout</button>
+<nav>
+  <div class="wrap">
+    <div class="brand">StatsDonkey</div>
+    <div class="spacer"></div>
+    <input id="team-key" class="input" style="max-width:180px" placeholder="Team Key (e.g., Argos)"/>
+    <button id="btn-load" class="btn outline small" type="button">Load</button>
+    <button id="btn-save" class="btn outline small" type="button">Save</button>
+    <button id="btn-logout" class="btn outline small hidden" type="button">Logout</button>
+  </div>
+</nav>
+
+<main class="container">
+  <!-- LOGIN -->
+  <section id="view-login" class="card">
+    <h2>Sign in</h2>
+    <p class="small">Demo: <b>Argos / 1234</b></p>
+    <div class="row">
+      <input id="login-user" class="input" placeholder="Username" value="Argos" style="max-width:240px"/>
+      <input id="login-pass" class="input" placeholder="Password" type="password" value="1234" style="max-width:240px"/>
+      <button id="btn-login" class="btn" type="button">Login</button>
     </div>
-  </nav>
+    <div id="login-error" class="error hidden">Invalid credentials.</div>
+  </section>
 
-  <main class="container">
-    <!-- LOGIN -->
-    <section id="view-login" class="card">
-      <h1>Sign in</h1>
-      <p class="small">Demo login: <b>Argos / 1234</b></p>
-      <div class="row">
-        <input id="login-user" class="input" placeholder="Username" value="Argos" style="max-width:280px"/>
-        <input id="login-pass" class="input" placeholder="Password" type="password" value="1234" style="max-width:280px"/>
-        <button id="btn-login" class="btn" type="button" onclick="onLogin()">Login</button>
-      </div>
-      <div id="login-error" class="error hidden">Invalid credentials.</div>
-    </section>
+  <!-- TEAM PROFILE -->
+  <section id="sec-team" class="card hidden">
+    <h2>1) Team profile</h2>
+    <div class="row">
+      <input id="team-name" class="input" placeholder="Team name" style="min-width:260px"/>
+      <input id="team-logo" type="file" accept="image/*" class="input" style="min-width:260px"/>
+      <button id="btn-save-team" class="btn" type="button">Save profile</button>
+    </div>
+    <div class="small">Logo preview:</div>
+    <img id="logo-preview" alt="logo" style="max-width:160px;max-height:160px;border:1px solid var(--line);border-radius:12px;display:none"/>
+  </section>
 
-    <!-- TEAM PROFILE -->
-    <section id="sec-team" class="card hidden">
-      <h2>1) Team profile</h2>
-      <div class="row">
-        <input id="team-name" class="input" placeholder="Team name" style="min-width:260px"/>
-        <input id="team-logo" type="file" accept="image/*" class="input" style="min-width:260px"/>
-        <button id="btn-save-team" class="btn" type="button">Save profile</button>
-      </div>
-      <div class="logo-preview" style="margin-top:8px"><img id="logo-preview" alt="logo preview"/></div>
-    </section>
+  <!-- ROSTER UPLOAD + TABLE -->
+  <section id="sec-roster" class="card hidden">
+    <h2>2) Roster</h2>
+    <p class="small">CSV headers: <code>first,last,number,positions</code></p>
+    <div class="row">
+      <input id="roster-file" type="file" accept=".csv" class="input" style="max-width:360px"/>
+      <button id="btn-roster-upload" class="btn" type="button">Upload CSV</button>
+      <button id="btn-roster-template" class="btn outline" type="button">CSV template</button>
+    </div>
+    <div class="row">
+      <input id="pf-first" class="input" placeholder="First" style="max-width:160px"/>
+      <input id="pf-last" class="input" placeholder="Last" style="max-width:160px"/>
+      <input id="pf-pos" class="input" placeholder="Positions (SS, 3B, OF)" style="max-width:200px"/>
+      <input id="pf-num" class="input" type="number" placeholder="#" style="max-width:100px"/>
+      <button id="btn-add-player" class="btn" type="button">Add Player</button>
+    </div>
+    <div id="roster-count" class="small" style="margin-top:6px"></div>
+    <div class="scroll roster"><table class="table" id="tbl-roster"></table></div>
+  </section>
 
-    <!-- ROSTER CSV -->
-    <section id="sec-roster" class="card hidden">
-      <h2>2) Roster upload (CSV)</h2>
-      <p class="small">CSV headers: <code>first,last,number,positions</code></p>
-      <div class="row">
-        <input id="roster-file" type="file" accept=".csv" class="input" style="max-width:420px"/>
-        <button id="btn-roster-upload" class="btn" type="button">Upload</button>
-        <button id="btn-roster-template" class="btn outline" type="button">CSV template</button>
-      </div>
-      <div id="roster-count" class="small" style="margin-top:6px"></div>
-      <div class="scroll roster">
-        <table class="table" id="tbl-roster"></table>
-      </div>
-    </section>
+  <!-- SCHEDULER (FORM) -->
+  <section id="sec-schedule" class="card hidden">
+    <h2>3) Scheduler</h2>
+    <div class="row">
+      <input id="sch-date" class="input" type="date" style="max-width:170px"/>
+      <input id="sch-time" class="input" type="time" style="max-width:130px"/>
+      <input id="sch-field" class="input" placeholder="Field" style="max-width:180px"/>
+      <input id="sch-comp" class="input" placeholder="League/Tournament" style="max-width:220px"/>
+    </div>
+    <div class="row">
+      <input id="sch-home" class="input" placeholder="Home team" style="max-width:220px"/>
+      <input id="sch-away" class="input" placeholder="Away team" style="max-width:220px"/>
+      <button id="btn-sch-add" class="btn" type="button">Add game</button>
+    </div>
+  </section>
 
-    <!-- PLAYER FORM -->
-    <section id="sec-player" class="card hidden">
-      <h2>3) Add / Update Player</h2>
-      <div class="row">
-        <input id="pf-search" class="input" placeholder="Search directory by name" style="flex:1;min-width:200px"/>
-        <input id="pf-lookup-id" class="input" placeholder="Lookup by Player ID" style="flex:1;min-width:200px"/>
-      </div>
-      <div id="pf-suggest" class="suggest hidden"></div>
+  <!-- CALENDAR -->
+  <section id="sec-calendar" class="card hidden">
+    <h2>4) Calendar</h2>
+    <div class="cal-header">
+      <button id="prev-month" class="btn outline small" type="button">◀</button>
+      <h3 id="cal-title" style="margin:0 10px"></h3>
+      <button id="next-month" class="btn outline small" type="button">▶</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </section>
 
-      <div class="row">
-        <input id="pf-first" class="input" placeholder="First" style="flex:1;min-width:140px"/>
-        <input id="pf-last" class="input" placeholder="Last" style="flex:1;min-width:140px"/>
-        <input id="pf-pos" class="input" placeholder="Positions (e.g., SS, 3B, OF)" style="flex:1;min-width:180px"/>
-        <input id="pf-num" type="number" class="input" placeholder="#" style="width:110px"/>
-      </div>
-      <div class="row">
-        <input id="pf-dob" type="date" class="input" style="width:200px"/>
-        <input id="pf-spn" class="input" placeholder="SPN rank" style="width:160px"/>
-        <input id="pf-nsa" class="input" placeholder="NSA rank" style="width:160px"/>
-      </div>
-      <div class="row">
-        <input id="pf-phone" class="input" type="tel" placeholder="Phone (coach-only)" style="min-width:220px"/>
-        <input id="pf-email" class="input" type="email" placeholder="Email (coach-only)" style="min-width:220px"/>
-        <input id="pf-address" class="input" placeholder="Address (coach-only)" style="flex:1;min-width:220px"/>
-      </div>
-      <div class="row">
-        <input id="pf-id" class="input" placeholder="Player ID (auto if blank)" style="min-width:240px"/>
-        <button id="btn-save-player" class="btn" type="button">Save Player</button>
-        <button id="btn-clear-player" class="btn ghost" type="button">Clear</button>
-      </div>
-      <p class="small">Privacy: Phone, email, address, DOB are stored locally only; public directory includes just name, positions, number, ranks, and Player ID.</p>
-    </section>
+  <!-- STATS -->
+  <section id="sec-stats" class="card hidden">
+    <h2>5) Player stats</h2>
+    <div class="scroll stats">
+      <table class="table sortable" id="tbl-stats"></table>
+    </div>
+    <p class="small">Stats are placeholders for now; we’ll wire live at-bat logging next.</p>
+  </section>
+</main>
 
-    <!-- SCHEDULER -->
-    <section id="sec-schedule" class="card hidden">
-      <h2>4) Scheduler (form)</h2>
-      <div class="row">
-        <input id="sch-date" class="input" type="date" style="width:180px"/>
-        <input id="sch-time" class="input" type="time" style="width:140px"/>
-        <input id="sch-field" class="input" placeholder="Field" style="min-width:160px"/>
-        <input id="sch-comp" class="input" placeholder="League/Tournament" style="min-width:200px"/>
-      </div>
-      <div class="row">
-        <input id="sch-home" class="input" placeholder="Home team" style="min-width:200px"/>
-        <input id="sch-away" class="input" placeholder="Away team" style="min-width:200px"/>
-        <button id="btn-sch-add" class="btn" type="button">Add game</button>
-        <span class="small" id="schedule-hint"></span>
-      </div>
-      <p class="small">Games only display in the Calendar below.</p>
-    </section>
+<div id="debug">status: <span id="dbg-status">boot</span></div>
 
-    <!-- CALENDAR -->
-    <section id="sec-calendar" class="card hidden">
-      <h2>5) Calendar</h2>
-      <div class="cal-header">
-        <button id="prev-month" class="btn outline small" type="button">◀</button>
-        <h3 id="cal-title" style="margin:0 10px"></h3>
-        <button id="next-month" class="btn outline small" type="button">▶</button>
-      </div>
-      <div class="cal-grid" id="cal-grid"></div>
-    </section>
+<!-- Firebase (client-only; no server needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 
-    <!-- STATS -->
-    <section id="sec-stats" class="card hidden">
-      <h2>6) Player stats (sortable)</h2>
-      <div class="scroll stats">
-        <table class="table sortable" id="tbl-stats"></table>
-      </div>
-    </section>
-  </main>
+<script>
+// ===== CONFIG =====
+// TODO: paste your firebaseConfig here (from Firebase Console > Project settings > General > Your apps)
+const firebaseConfig = {
+  apiKey: "PASTE",
+  authDomain: "PASTE.firebaseapp.com",
+  projectId: "PASTE",
+  storageBucket: "PASTE.appspot.com",
+  messagingSenderId: "PASTE",
+  appId: "PASTE"
+};
+// ==================
 
-  <div id="debug">status: <span id="dbg-status">boot</span></div>
+const DEFAULT_TEAM = "Argos";
+const defaultUser = { username: 'Argos', password: '1234' };
 
-  <script>
-  // ====== SET YOUR API URL (Vercel) ======
-  const API_BASE = "https://statsdonkey.vercel.app/api";
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const setDbg = s => { const el = $('#dbg-status'); if (el) el.textContent = s; };
 
-  // ====== Fixed shared team (no Team Key UI) ======
-  const TEAM_NAME = "Argos";
+let app, db, authed = false;
+let teamKey = DEFAULT_TEAM;
+let data = { team:{ name: DEFAULT_TEAM, logo:'' }, roster:[], schedule:[], stats:{} };
+let calCurrent = new Date();
 
-  // ====== Helpers / Storage ======
-  const safeClone = (obj) => { try { return structuredClone(obj); } catch { try { return JSON.parse(JSON.stringify(obj)); } catch { return obj; } } };
-  const storage = {
-    get(k){ try { return localStorage.getItem(k); } catch { return null; } },
-    set(k,v){ try { localStorage.setItem(k,v); } catch {} },
-    remove(k){ try { localStorage.removeItem(k); } catch {} }
-  };
-  const $ = s => document.querySelector(s);
-  const $$ = s => Array.from(document.querySelectorAll(s));
-  function show(e){ e && e.classList.remove('hidden'); }
-  function hide(e){ e && e.classList.add('hidden'); }
-  function setDbg(s){ const el = $('#dbg-status'); if (el) el.textContent = String(s); }
-  window.onerror = function(msg){ setDbg('error: ' + msg); };
+// --- Firebase init (anon auth so rules can require a signed-in user)
+function initFirebase(){
+  app = firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebase.auth().signInAnonymously().then(()=> setDbg('firebase: anon OK')).catch(e => setDbg('firebase auth err'));
+}
 
-  // ====== Local state ======
-  const AUTH_KEY = 'sd_auth_v1';
-  const DATA_KEY = 'sd_data_v1';
-  const defaultUser = { username: 'Argos', password: '1234' };
-  const defaultData = { team: { name: TEAM_NAME, logo: '' }, roster: [], schedule: [], stats: {} };
+// --- UI helpers
+function initUI(){
+  $('#team-key').value = teamKey;
 
-  function loadAuth(){ try{ const raw = storage.get(AUTH_KEY); return raw ? JSON.parse(raw) : null; }catch{return null;} }
-  function saveAuth(o){ storage.set(AUTH_KEY, JSON.stringify(o)); }
-  function clearAuth(){ storage.remove(AUTH_KEY); }
-  function loadData(){ try{ const raw = storage.get(DATA_KEY); return raw ? JSON.parse(raw) : safeClone(defaultData);}catch{return safeClone(defaultData);} }
-  function saveData(d){ storage.set(DATA_KEY, JSON.stringify(d)); trySync(d); }
-
-  // ====== API helpers ======
-  async function apiGet(path){
-    try { const r = await fetch(API_BASE + path); return { ok:r.ok, json: r.ok ? await r.json() : null }; }
-    catch { return { ok:false }; }
-  }
-  async function apiPost(path, body){
-    try { const r = await fetch(API_BASE + path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-      return { ok:r.ok, json: r.ok ? await r.json() : null };
-    } catch { return { ok:false }; }
-  }
-
-  function isCloudOn(){ return storage.get('sd_cloud_sync') === '1'; }
-
-  async function trySync(payload){
-    if (!isCloudOn()) return;
-    const data = safeClone(payload) || {};
-    data.team = data.team || {};
-    data.team.name = TEAM_NAME; // force single shared doc
-    await apiPost('/team', { data });
-    setDbg('pushed:'+TEAM_NAME);
-  }
-  async function loadFromCloud(){
-    const r = await apiGet('/team?name=' + encodeURIComponent(TEAM_NAME));
-    if(r.ok && r.json){ setDbg('pulled:'+TEAM_NAME); return r.json; }
-    setDbg('pull-failed');
-    return null;
-  }
-  async function getPlayerPublicById(id){
-    const r = await apiGet('/player?id=' + encodeURIComponent(id));
-    return r.ok ? r.json : null;
-  }
-  async function searchPlayersByName(q){
-    const r = await apiGet('/player?q=' + encodeURIComponent(q));
-    return r.ok ? r.json : [];
-  }
-  async function upsertPlayerPublic(pub){
-    if (!isCloudOn()) return;
-    await apiPost('/player', pub);
-  }
-
-  // ====== Auth ======
-  function onLogin(){
-    setDbg('login-click');
+  // login
+  $('#btn-login').onclick = () => {
     const u = $('#login-user').value.trim();
     const p = $('#login-pass').value;
     if (u === defaultUser.username && p === defaultUser.password){
-      saveAuth({ user:u, at:Date.now() });
+      authed = true;
       $('#login-error').classList.add('hidden');
       route();
-      setDbg('authed-view');
-    } else { $('#login-error').classList.remove('hidden'); setDbg('bad-credentials'); }
-  }
-  function onLogout(){ clearAuth(); route(); setDbg('logged-out'); }
-
-  // ====== Team profile ======
-  function initTeam(){
-    const d = loadData();
-    $('#team-name').value = d.team.name || '';
-    const im = $('#logo-preview'); if(im){ im.src = d.team.logo || ''; im.style.display = d.team.logo ? 'block':'none'; }
-  }
-  function onSaveTeam(){
-    const d = loadData(); d.team.name = TEAM_NAME; // lock to shared team
-    saveData(d); alert('Team profile saved');
-  }
-  function onLogoUpload(ev){
-    const f = ev.target.files && ev.target.files[0]; if (!f) return;
-    const r = new FileReader();
-    r.onload = () => { const d = loadData(); d.team.logo = r.result; saveData(d); initTeam(); };
-    r.readAsDataURL(f);
-  }
-
-  // ====== CSV helpers ======
-  function parseCSV(t){
-    const rows=[]; let i=0, field='', row=[], inQ=false;
-    while(i<t.length){
-      const c=t[i];
-      if(inQ){
-        if(c==='\"'){ if(t[i+1]==='\"'){ field+='\"'; i+=2;} else{ inQ=false; i++; } }
-        else{ field+=c; i++; }
-      } else {
-        if(c==='\"'){ inQ=true; i++; }
-        else if(c===','){ row.push(field.trim()); field=''; i++; }
-        else if(c==='\\n' || c==='\\r'){ if(field.length||row.length){ row.push(field.trim()); rows.push(row); } field=''; row=[]; if(c==='\\r'&&t[i+1]==='\\n') i+=2; else i++; }
-        else{ field+=c; i++; }
-      }
+    } else {
+      $('#login-error').classList.remove('hidden');
     }
-    if(field.length||row.length){ row.push(field.trim()); rows.push(row); }
-    return rows;
-  }
-  function csvToObjects(text){
-    const rows = parseCSV(text).filter(r=>r.length && r.some(x=>x!==''));
-    if(!rows.length) return [];
-    const headers = rows[0].map(h=>h.toLowerCase());
-    return rows.slice(1).map(r=>{ const o={}; for(let i=0;i<headers.length;i++) o[headers[i]]=(r[i]??'').trim(); return o; });
-  }
-  function downloadText(name, text){
-    const b = new Blob([text], {type:'text/plain'});
-    const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0);
-  }
+  };
+  $('#btn-logout').onclick = () => { authed=false; route(); };
 
-  // ====== Roster upload (CSV) ======
-  function onRosterUpload(){
-    const f = $('#roster-file').files && $('#roster-file').files[0]; if(!f) return alert('Choose a CSV file first');
-    const r = new FileReader();
-    r.onload = () => {
-      const items = csvToObjects(String(r.result));
-      const d = loadData();
-      for(const it of items){
-        const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
-        const positions = (it.positions || '').split(/\\s*,\\s*/).filter(Boolean);
-        d.roster.push({ id, first:it.first||'', last:it.last||'', number: it.number?Number(it.number):undefined, positions,
-          dob:'', phone:'', email:'', address:'', spnRank:'', nsaRank:''
-        });
-        upsertPlayerPublic({ id, first:it.first||'', last:it.last||'', number: it.number||'', positions, spnRank:'', nsaRank:'' });
-      }
-      saveData(d); renderRosterTable(); renderStatsTable();
-    };
-    r.readAsText(f);
-  }
-  function renderRosterTable(){
-    const d = loadData();
-    const rows = d.roster.map(p => `<tr>
-      <td>${p.first} ${p.last}</td>
-      <td>${p.number||''}</td>
-      <td>${(p.positions||[]).join(', ')}</td>
-      <td>${p.spnRank||''}</td>
-      <td>${p.nsaRank||''}</td>
-      <td class="small">${p.id}</td>
-      <td><button class="btn outline small" data-edit="${p.id}" type="button">Edit</button></td>
-    </tr>`).join('');
-    $('#roster-count').textContent = d.roster.length ? (d.roster.length + ' players'): 'No players yet';
-    $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>SPN</th><th>NSA</th><th>ID</th><th></th></tr></thead><tbody>'+rows+'</tbody>';
-    $$('#tbl-roster [data-edit]').forEach(b=>b.addEventListener('click',()=>editPlayer(b.getAttribute('data-edit'))));
-  }
-  function onRosterTemplate(){
-    downloadText('roster-template.csv','first,last,number,positions\\nJane,Doe,12,"SS,3B"\\nJohn,Smith,7,"OF"');
-  }
+  // top buttons
+  $('#btn-load').onclick = pull;
+  $('#btn-save').onclick = push;
+  $('#team-key').onchange = () => { teamKey = ($('#team-key').value.trim() || DEFAULT_TEAM); pull(); };
 
-  // ====== Player form ======
-  function readPlayerForm(){
-    return {
-      id: $('#pf-id').value.trim() || (crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-      first: $('#pf-first').value.trim(),
-      last: $('#pf-last').value.trim(),
-      positions: $('#pf-pos').value.split(/\\s*,\\s*/).filter(Boolean),
-      number: $('#pf-num').value ? Number($('#pf-num').value) : undefined,
-      dob: $('#pf-dob').value || '',
-      phone: $('#pf-phone').value.trim(),
-      email: $('#pf-email').value.trim(),
-      address: $('#pf-address').value.trim(),
-      spnRank: $('#pf-spn').value.trim(),
-      nsaRank: $('#pf-nsa').value.trim()
-    };
-  }
-  function writePlayerForm(p){
-    $('#pf-id').value = p.id || '';
-    $('#pf-first').value = p.first || '';
-    $('#pf-last').value = p.last || '';
-    $('#pf-pos').value = (p.positions||[]).join(', ');
-    $('#pf-num').value = p.number || '';
-    $('#pf-dob').value = p.dob || '';
-    $('#pf-phone').value = p.phone || '';
-    $('#pf-email').value = p.email || '';
-    $('#pf-address').value = p.address || '';
-    $('#pf-spn').value = p.spnRank || '';
-    $('#pf-nsa').value = p.nsaRank || '';
-  }
-  function clearPlayerForm(){ writePlayerForm({}); }
-  function onSavePlayer(){
-    const p = readPlayerForm();
-    if(!p.first || !p.last) return alert('First and Last name are required');
-    const d = loadData();
-    // prevent duplicate: same name + DOB
-    const dup = d.roster.find(x => x.id !== p.id && x.dob && p.dob &&
-      x.first.toLowerCase() === p.first.toLowerCase() &&
-      x.last.toLowerCase() === p.last.toLowerCase() &&
-      x.dob === p.dob);
-    if(dup) return alert('A player with the same name and DOB already exists.');
-    const i = d.roster.findIndex(x=>x.id===p.id);
-    if(i>=0) d.roster[i]=p; else d.roster.push(p);
-    saveData(d); renderRosterTable(); renderStatsTable();
-    upsertPlayerPublic({ id:p.id, first:p.first, last:p.last, number:p.number||'', positions:p.positions||[], spnRank:p.spnRank||'', nsaRank:p.nsaRank||'' });
-    alert('Player saved');
-  }
-  function editPlayer(id){
-    const d = loadData(); const p = d.roster.find(x=>x.id===id); if(!p) return;
-    writePlayerForm(p); window.scrollTo({top:0,behavior:'smooth'});
-  }
+  // team profile
+  $('#btn-save-team').onclick = () => { data.team.name = $('#team-name').value.trim() || teamKey; push(); };
+  $('#team-logo').onchange = onLogoUpload;
 
-  // ====== Search & Lookup ======
-  let searchTimer=null;
-  function onLookupIdInput(){
-    const id = $('#pf-lookup-id').value.trim(); if(!id) return;
-    getPlayerPublicById(id).then(pub=>{
-      if(pub){ writePlayerForm({ id:pub.id, first:pub.first, last:pub.last, positions:pub.positions||[], number:pub.number||'', spnRank:pub.spnRank||'', nsaRank:pub.nsaRank||'' }); }
-    });
-  }
-  function onNameSearchInput(){
-    const q = $('#pf-search').value.trim();
-    const box = $('#pf-suggest');
-    if(searchTimer) clearTimeout(searchTimer);
-    if(!q){ box.classList.add('hidden'); box.innerHTML=''; return; }
-    searchTimer = setTimeout(async ()=>{
-      let results = [];
-      try{ results = await searchPlayersByName(q); }catch{}
-      if(!results || !results.length){
-        const d = loadData();
-        results = d.roster.filter(p => (`${p.first} ${p.last}`).toLowerCase().includes(q.toLowerCase()))
-          .map(p => ({ id:p.id, first:p.first, last:p.last, number:p.number||'', positions:p.positions||[], spnRank:p.spnRank||'', nsaRank:p.nsaRank||'' }));
-      }
-      if(!results.length){ box.classList.add('hidden'); box.innerHTML=''; return; }
-      box.innerHTML = results.slice(0,10).map(r => `<div class="item" data-id="${r.id}">${r.first} ${r.last} ${r.number?('#'+r.number):''} — ${Array.isArray(r.positions)?r.positions.join(', '):''}</div>`).join('');
-      box.classList.remove('hidden');
-      $$('#pf-suggest .item').forEach(it => it.addEventListener('click',()=>{
-        const sel = results.find(r => r.id === it.getAttribute('data-id'));
-        if(sel) writePlayerForm({ id:sel.id, first:sel.first, last:sel.last, number:sel.number||'', positions:sel.positions||[], spnRank:sel.spnRank||'', nsaRank:sel.nsaRank||'' });
-        box.classList.add('hidden'); box.innerHTML='';
-      }));
-    },250);
-  }
+  // roster
+  $('#btn-roster-upload').onclick = onRosterUpload;
+  $('#btn-roster-template').onclick = () => downloadText('roster-template.csv','first,last,number,positions\nJane,Doe,12,"SS,3B"\nJohn,Smith,7,"OF"');
+  $('#btn-add-player').onclick = onAddPlayer;
 
-  // ====== Scheduler ======
-  function onScheduleAdd(){
-    const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
-    const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
-    if(!date || !home || !away) return alert('Date, Home, and Away are required');
-    const d=loadData(); const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
-    d.schedule.push({ id, date, time, field, comp, home, away }); saveData(d);
-    $('#schedule-hint').textContent='Saved to calendar below.'; setTimeout(()=>$('#schedule-hint').textContent='',1800);
-    $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
-    renderCalendar();
-  }
+  // schedule
+  $('#btn-sch-add').onclick = onScheduleAdd;
 
-  // ====== Stats (sortable) ======
-  let currentSortKey='Player', currentSortDir='asc';
-  function computeStats(){
-    const d=loadData();
-    return d.roster.map(p => ({ Player:`${p.first} ${p.last}`.trim(), PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, AVG:'0.000', OBP:'0.000', SLG:'0.000', OPS:'0.000' }));
-  }
-  function renderStatsTable(){
-    let rows=computeStats();
-    rows.sort((a,b)=>{
-      const A=a[currentSortKey], B=b[currentSortKey]; const num=!isNaN(parseFloat(A)) && !isNaN(parseFloat(B));
-      return (currentSortDir==='asc'?1:-1) * (num ? (parseFloat(A)-parseFloat(B)) : String(A).localeCompare(String(B)));
-    });
-    const headers=['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
-    const thead='<thead><tr>'+headers.map(h=>`<th class="sort" data-key="${h}">${h}</th>`).join('')+'</tr></thead>';
-    const tbody='<tbody>'+rows.map(r=>'<tr>'+headers.map(h=>`<td>${r[h]}</td>`).join('')+'</tr>').join('')+'</tbody>';
-    $('#tbl-stats').innerHTML=thead+tbody;
-    $$('#tbl-stats th.sort').forEach(th=>th.addEventListener('click',()=>{
-      const key=th.dataset.key; if(currentSortKey===key) currentSortDir=(currentSortDir==='asc'?'desc':'asc'); else {currentSortKey=key; currentSortDir='asc';}
-      renderStatsTable();
-    }));
-  }
+  // calendar nav
+  $('#prev-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); };
+  $('#next-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); };
+}
 
-  // ====== Calendar ======
-  let calCurrent = new Date();
-  function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
-  function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
-  function renderCalendar(){
-    const d = loadData();
-    const m0 = startOfMonth(calCurrent), m1 = endOfMonth(calCurrent);
-    $('#cal-title').textContent = m0.toLocaleString(undefined,{month:'long',year:'numeric'});
-    const first = m0.getDay(), days = m1.getDate();
-    const grid = $('#cal-grid'); grid.innerHTML='';
-    const daysHdr=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    for(const dd of daysHdr){ const h=document.createElement('div'); h.className='cell head'; h.textContent=dd; grid.appendChild(h); }
-    for(let i=0;i<first;i++){ const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b); }
-    for(let day=1; day<=days; day++){
-      const cell=document.createElement('div'); cell.className='cell day';
-      const ds=`${m0.getFullYear()}-${String(m0.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
-      const ul=document.createElement('ul'); ul.className='events';
-      const items=(d.schedule||[]).filter(g=>String(g.date)===ds);
-      for(const g of items){
-        const li=document.createElement('li');
-        const home=g.home||'Home', away=g.away||'Away', time=g.time||'', field=g.field?(' @ '+g.field):'', comp=g.comp?(' — '+g.comp):'';
-        li.textContent=(`${time} ${home} vs ${away}${field}${comp}`).trim();
-        ul.appendChild(li);
-      }
-      cell.appendChild(ul); grid.appendChild(cell);
+// --- Routing
+function route(){
+  if(!authed){
+    show($('#view-login'));
+    hide($('#sec-team')); hide($('#sec-roster')); hide($('#sec-schedule')); hide($('#sec-calendar')); hide($('#sec-stats'));
+    $('#btn-logout').classList.add('hidden');
+    return;
+  }
+  hide($('#view-login'));
+  show($('#sec-team')); show($('#sec-roster')); show($('#sec-schedule')); show($('#sec-calendar')); show($('#sec-stats'));
+  $('#btn-logout').classList.remove('hidden');
+  hydrateUI();
+}
+
+// --- Firestore doc ref
+function teamDoc(){ return db.collection('teams').doc(teamKey); }
+
+// --- Pull/Push
+async function pull(){
+  try{
+    const snap = await teamDoc().get();
+    if (snap.exists){
+      data = snap.data();
+      setDbg('pulled:'+teamKey);
+    } else {
+      data = { team:{ name: teamKey, logo:'' }, roster:[], schedule:[], stats:{} };
+      setDbg('new-team-doc');
     }
-  }
+    hydrateUI();
+  }catch(e){ setDbg('pull-error'); console.error(e); alert('Pull failed. Check Firebase config / rules.'); }
+}
 
-  // ====== Route / Show after login ======
-  function route(){
-    const authed = !!loadAuth();
-    if(!authed){
-      show($('#view-login'));
-      hide($('#sec-team')); hide($('#sec-roster')); hide($('#sec-player')); hide($('#sec-schedule')); hide($('#sec-calendar')); hide($('#sec-stats'));
-      hide($('#btn-logout'));
-      setDbg('login-view');
-      return;
+async function push(){
+  try{
+    // keep team name aligned with teamKey
+    data.team = data.team || {}; data.team.name = teamKey;
+    await teamDoc().set(data, { merge:true });
+    setDbg('pushed:'+teamKey);
+    alert('Saved');
+  }catch(e){ setDbg('push-error'); console.error(e); alert('Save failed. Check Firebase config / rules.'); }
+}
+
+// --- Team profile UI
+function hydrateUI(){
+  // team
+  $('#team-name').value = data.team?.name || teamKey;
+  const im = $('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
+  // roster
+  renderRosterTable();
+  // stats
+  renderStatsTable();
+  // calendar
+  renderCalendar();
+}
+function onLogoUpload(ev){
+  const f = ev.target.files && ev.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => { data.team = data.team || {}; data.team.logo = r.result; hydrateUI(); };
+  r.readAsDataURL(f);
+}
+
+// --- Roster
+function onAddPlayer(){
+  const first = $('#pf-first').value.trim(), last = $('#pf-last').value.trim();
+  const positions = $('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
+  const num = $('#pf-num').value ? Number($('#pf-num').value) : undefined;
+  if(!first || !last) return alert('First & Last are required');
+  const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
+  data.roster.push({ id, first, last, positions, number:num, spnRank:'', nsaRank:'' });
+  $('#pf-first').value=''; $('#pf-last').value=''; $('#pf-pos').value=''; $('#pf-num').value='';
+  hydrateUI();
+}
+function onRosterUpload(){
+  const f = $('#roster-file').files && $('#roster-file').files[0]; if(!f) return alert('Choose a CSV file first');
+  const r = new FileReader();
+  r.onload = () => {
+    const items = csvToObjects(String(r.result));
+    for(const it of items){
+      const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()+Math.random());
+      const positions = (it.positions || '').split(/\s*,\s*/).filter(Boolean);
+      data.roster.push({ id, first:it.first||'', last:it.last||'', number: it.number?Number(it.number):undefined, positions, spnRank:'', nsaRank:'' });
     }
-    hide($('#view-login')); show($('#btn-logout'));
+    hydrateUI();
+  };
+  r.readAsText(f);
+}
+function renderRosterTable(){
+  const rows = (data.roster||[]).map(p=>`<tr>
+    <td>${p.first} ${p.last}</td>
+    <td>${p.number||''}</td>
+    <td>${(p.positions||[]).join(', ')}</td>
+    <td>${p.spnRank||''}</td>
+    <td>${p.nsaRank||''}</td>
+    <td class="small">${p.id}</td>
+  </tr>`).join('');
+  $('#roster-count').textContent = data.roster?.length ? (data.roster.length + ' players') : 'No players';
+  $('#tbl-roster').innerHTML = '<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>SPN</th><th>NSA</th><th>ID</th></tr></thead><tbody>'+rows+'</tbody>';
+}
 
-    // stacked sections
-    show($('#sec-team')); show($('#sec-roster')); show($('#sec-player')); show($('#sec-schedule')); show($('#sec-calendar')); show($('#sec-stats'));
-
-    // hydrate from cloud (replace local)
-    loadFromCloud().then(remote=>{
-      if(remote){
-        storage.set(DATA_KEY, JSON.stringify(remote));
-        initTeam(); renderRosterTable(); renderStatsTable(); renderCalendar();
-      }
-    });
-
-    // initial render
-    initTeam(); renderRosterTable(); renderStatsTable(); renderCalendar();
-    // default Cloud ON if not set yet
-    if(storage.get('sd_cloud_sync') === null){ storage.set('sd_cloud_sync','1'); }
-    $('#cloud-sync').checked = (storage.get('sd_cloud_sync') === '1');
-    setDbg('authed-view');
-  }
-
-  // ====== Wire up ======
-  (function boot(){
-    try{
-      // auth + top controls
-      $('#btn-login').addEventListener('click', onLogin);
-      $('#btn-logout').addEventListener('click', onLogout);
-      $('#btn-pull').addEventListener('click', async ()=>{ const r = await loadFromCloud(); if(r){ storage.set(DATA_KEY, JSON.stringify(r)); initTeam(); renderRosterTable(); renderStatsTable(); renderCalendar(); }});
-      $('#btn-push').addEventListener('click', ()=> trySync(loadData()));
-      $('#cloud-sync').addEventListener('change', e => {
-        storage.set('sd_cloud_sync', e.target.checked ? '1' : '0');
-        if(e.target.checked) trySync(loadData());
-      });
-
-      // sections
-      $('#btn-save-team').addEventListener('click', onSaveTeam);
-      $('#team-logo').addEventListener('change', onLogoUpload);
-      $('#btn-roster-upload').addEventListener('click', onRosterUpload);
-      $('#btn-roster-template').addEventListener('click', onRosterTemplate);
-      $('#btn-save-player').addEventListener('click', onSavePlayer);
-      $('#btn-clear-player').addEventListener('click', clearPlayerForm);
-      $('#pf-lookup-id').addEventListener('input', onLookupIdInput);
-      $('#pf-search').addEventListener('input', onNameSearchInput);
-      $('#btn-sch-add').addEventListener('click', onScheduleAdd);
-      $('#prev-month').addEventListener('click', ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); });
-      $('#next-month').addEventListener('click', ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); });
-
-      route();
-    }catch(e){
-      setDbg('boot-error: '+e.message);
+// --- Schedule + Calendar
+function onScheduleAdd(){
+  const date=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
+  const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
+  if(!date || !home || !away) return alert('Date, Home, Away are required');
+  const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
+  data.schedule = data.schedule || [];
+  data.schedule.push({ id, date, time, field, comp, home, away });
+  $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
+  renderCalendar();
+}
+function renderCalendar(){
+  const m0 = new Date(calCurrent.getFullYear(), calCurrent.getMonth(), 1);
+  const m1 = new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 0);
+  $('#cal-title').textContent = m0.toLocaleString(undefined,{month:'long',year:'numeric'});
+  const first = m0.getDay(), days = m1.getDate();
+  const grid = $('#cal-grid'); grid.innerHTML='';
+  const daysHdr=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for(const dd of daysHdr){ const h=document.createElement('div'); h.className='cell head'; h.textContent=dd; grid.appendChild(h); }
+  for(let i=0;i<first;i++){ const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b); }
+  for(let day=1; day<=days; day++){
+    const cell=document.createElement('div'); cell.className='cell';
+    const ds=`${m0.getFullYear()}-${String(m0.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
+    const ul=document.createElement('ul'); ul.className='events';
+    const items=(data.schedule||[]).filter(g=>String(g.date)===ds);
+    for(const g of items){
+      const li=document.createElement('li');
+      const home=g.home||'Home', away=g.away||'Away', time=g.time||'', field=g.field?(' @ '+g.field):'', comp=g.comp?(' — '+g.comp):'';
+      li.textContent=(`${time} ${home} vs ${away}${field}${comp}`).trim();
+      ul.appendChild(li);
     }
-  })();
-  </script>
+    cell.appendChild(ul); grid.appendChild(cell);
+  }
+}
 
-  <noscript>
-    <div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
-      JavaScript is disabled. Enable it to use StatsDonkey.
-    </div>
-  </noscript>
+// --- Stats (placeholder; sortable)
+let currentSortKey='Player', currentSortDir='asc';
+function computeStats(){
+  return (data.roster||[]).map(p => ({ Player:`${p.first} ${p.last}`.trim(), PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, AVG:'0.000', OBP:'0.000', SLG:'0.000', OPS:'0.000' }));
+}
+function renderStatsTable(){
+  let rows=computeStats();
+  rows.sort((a,b)=>{const A=a[currentSortKey],B=b[currentSortKey];const num=!isNaN(parseFloat(A))&&!isNaN(parseFloat(B));return (currentSortDir==='asc'?1:-1)*(num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B)));});
+  const headers=['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
+  const thead='<thead><tr>'+headers.map(h=>`<th class="sort" data-key="${h}">${h}</th>`).join('')+'</tr></thead>';
+  const tbody='<tbody>'+rows.map(r=>'<tr>'+headers.map(h=>`<td>${r[h]}</td>`).join('')+'</tr>').join('')+'</tbody>';
+  $('#tbl-stats').innerHTML=thead+tbody;
+  $$('#tbl-stats th.sort').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.key;if(currentSortKey===key) currentSortDir=(currentSortDir==='asc'?'desc':'asc'); else{currentSortKey=key;currentSortDir='asc';} renderStatsTable();}));
+}
+
+// --- Utils
+function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
+function downloadText(name,text){const b=new Blob([text],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);}
+function csvToObjects(t){const rows=t.split(/\r?\n/).map(r=>r.split(',')).filter(r=>r.some(x=>x));if(!rows.length)return[];const H=rows[0].map(h=>h.toLowerCase());return rows.slice(1).map(r=>{const o={};for(let i=0;i<H.length;i++)o[H[i]]=(r[i]||'').replace(/^"|"$/g,'').trim();return o;});}
+
+// --- Boot
+window.onload = ()=>{
+  try{
+    initFirebase();
+    initUI();
+    route();
+  }catch(e){ setDbg('boot-error'); console.error(e); }
+};
+</script>
+
+<noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
+JavaScript is disabled. Enable it to use StatsDonkey.
+</div></noscript>
 </body>
 </html>
-
