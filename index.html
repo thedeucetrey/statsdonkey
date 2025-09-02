@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R16</title>
+<title>StatsDonkey — R17</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -14,7 +14,7 @@
 label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:4px}
 .btn{background:var(--acc);color:#06220f;border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
 .btn.outline{background:transparent;color:var(--acc);border:1px solid var(--acc)} .btn.small{padding:8px 10px;font-size:12px}
-.small{font-size:12px;color:#95a3b8}
+.small{font-size:12px;color:#94a3b8}
 .table{width:100%;border-collapse:separate;border-spacing:0;margin-top:10px}
 .table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
 .table thead th{position:sticky;top:0;background:var(--card);z-index:1}
@@ -71,8 +71,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 <nav>
   <div class="wrap">
     <div class="brand">StatsDonkey</div>
+    <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R16</span>
+    <span class="small">BUILD R17</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -148,6 +149,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       <input id="sch-home" class="input" placeholder="Home team" style="max-width:220px"/>
       <input id="sch-away" class="input" placeholder="Away team" style="max-width:220px"/>
       <button id="btn-sch-add" class="btn" type="button">Add game</button>
+      <span id="sch-err" class="small bad"></span>
     </div>
 
     <div class="hr"></div>
@@ -178,7 +180,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   </section>
 </main>
 
-<!-- GAME TRACKER MODAL -->
+<!-- GAME TRACKER MODAL (unchanged from earlier) -->
 <div id="game-modal" role="dialog" aria-modal="true" aria-label="Game tracker">
   <div class="gm-card">
     <div class="gm-head">
@@ -340,9 +342,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
   const setDbg = s => { const el = $('#dbg-status'); if (el) el.textContent = s; };
+  const setNav = s => { const el = $('#nav-status'); if (el) el.textContent = s; };
 
   const z2 = n => String(n).padStart(2,'0');
-  // normalize many possible inputs to YYYY-MM-DD
   function normDate(s){
     if(!s) return '';
     s = String(s).trim();
@@ -354,7 +356,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     if ((m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/))) {
       return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
     }
-    // last resort: try Date
     const d = new Date(s);
     if (!isNaN(d)) return `${d.getFullYear()}-${z2(d.getMonth()+1)}-${z2(d.getDate())}`;
     return s;
@@ -373,18 +374,20 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   // ---------- Team realtime ----------
   function startTeamListener(){
     stopTeamListener();
+    setDbg('listening');
     unsubTeam = onSnapshot(doc(db, "teams", teamDocId), async snap=>{
       if (!snap.exists()) return;
       const raw = snap.data() || {};
       const normRoster   = asArray(raw.roster);
       const normSchedule = asArray(raw.schedule).map(g => ({...g, date: normDate(g.date)}));
-      if (!Array.isArray(raw.roster)   && normRoster.length)   setDoc(doc(db,"teams",teamDocId), { roster: normRoster }, { merge:true });
-      if (!Array.isArray(raw.schedule) && normSchedule.length) setDoc(doc(db,"teams",teamDocId), { schedule: normSchedule }, { merge:true });
-
       data = { ...raw, roster: normRoster, schedule: normSchedule };
       await preloadRosterPlayers();
       hydrateUI();
       setDbg(`synced • roster:${data.roster.length} • games:${data.schedule.length}`);
+      setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule?.length||0} | roster: ${data.roster?.length||0}`);
+    }, (err)=>{
+      console.error('onSnapshot error', err);
+      setDbg('listen-error');
     });
   }
   function stopTeamListener(){ if (unsubTeam){ unsubTeam(); unsubTeam=null; } }
@@ -412,14 +415,15 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const err = $('#login-error'); err.textContent='';
       if (!team || !pass){ err.textContent='Enter team and password.'; return; }
       try{
-        teamDocId = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(team.toLowerCase().trim()+'|'+pass))
-          .then(buf=>Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''));
+        const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(team.toLowerCase().trim()+'|'+pass));
+        teamDocId = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
         await ensureTeamSeed(team);
         route(true); startTeamListener();
         setDbg('authless:ok');
+        setNav(`team: ${team} | games: 0 | roster: 0`);
       }catch(e){ console.error(e); err.textContent='Login failed (config/rules).'; }
     };
-    $('#btn-logout').onclick = ()=>{ stopTeamListener(); stopGameListener(); currentGameId=null; currentGame=null; route(false); };
+    $('#btn-logout').onclick = ()=>{ stopTeamListener(); stopGameListener(); currentGameId=null; currentGame=null; route(false); setNav(''); };
 
     $('#btn-add-player').onclick = onAddPlayer;
     $('#btn-search').onclick = onSearchPlayers;
@@ -499,16 +503,20 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         await setDoc(pRef,{ranks},{merge:true});
       }
       playerCache.set(pid,(await getDoc(pRef)).data());
-      const roster=[...(data.roster||[]), { playerId:pid, first,last,dob, number, positions, ranks:{nsa,spn} }];
-      await saveTeamDoc({ roster });
+      // optimistic update
+      data.roster = [...(data.roster||[]), { playerId:pid, first,last,dob, number, positions, ranks:{nsa,spn} }];
+      renderRoster();
+      await saveTeamDoc({ roster: data.roster });
       ['pf-first','pf-last','pf-dob','pf-pos','pf-num','pf-nsa','pf-spn'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; });
     }catch(e){ console.error(e); $('#pf-err').textContent='Add failed.'; }
   }
   async function removeFromRoster(pid){
     if(!pid) return;
     if(!confirm('Remove this player from the team roster? This does not delete their global profile.')) return;
-    const roster = (data.roster||[]).filter(r=>r.playerId!==pid);
-    await saveTeamDoc({ roster });
+    // optimistic update
+    data.roster = (data.roster||[]).filter(r=>r.playerId!==pid);
+    renderRoster();
+    await saveTeamDoc({ roster: data.roster });
   }
   async function onSearchPlayers(){
     const term=$('#srch-name').value.trim().toLowerCase(); const dob=$('#srch-dob').value; const out=$('#srch-results'); out.innerHTML='';
@@ -537,51 +545,49 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           const pid=btn.getAttribute('data-add'); if((data.roster||[]).some(x=>x.playerId===pid)) return;
           const pSnap=await getDoc(doc(db,"players",pid)); if(!pSnap.exists()) return;
           const p=pSnap.data();
-          const roster=[...(data.roster||[]), { playerId:pid, first:p.first||'', last:p.last||'', dob:p.dob||'', number:numDefault, positions:posDefault, ranks:{nsa:p.ranks?.nsa||'', spn:p.ranks?.spn||''} }];
-          await saveTeamDoc({ roster }); playerCache.set(pid,p);
+          data.roster=[...(data.roster||[]), { playerId:pid, first:p.first||'', last:p.last||'', dob:p.dob||'', number:numDefault, positions:posDefault, ranks:{nsa:p.ranks?.nsa||'', spn:p.ranks?.spn||''} }];
+          renderRoster();
+          await saveTeamDoc({ roster: data.roster });
           btn.replaceWith((()=>{const t=document.createElement('span'); t.className='small'; t.style.color='#34d399'; t.textContent='Added'; return t; })());
         };
       });
     }catch(e){ console.error(e); out.textContent='Search failed.'; }
   }
-  function renderRoster(){
-    const rows=(data.roster||[]).map(p=>`<tr>
-      <td>${p.first} ${p.last}</td>
-      <td>${p.number||''}</td>
-      <td>${(p.positions||[]).join(', ')}</td>
-      <td>${p.dob||''}</td>
-      <td>${p.ranks?.nsa||''}</td>
-      <td>${p.ranks?.spn||''}</td>
-      <td class="small">${p.playerId}</td>
-      <td><button class="btn outline small" data-del-pid="${p.playerId}">Remove</button></td>
-    </tr>`).join('');
-    $('#roster-count').textContent = data.roster?.length ? (data.roster.length + ' players') : 'No players';
-    $('#tbl-roster').innerHTML='<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>NSA</th><th>SPN</th><th>ID</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody>';
-    $$('#tbl-roster button[data-del-pid]').forEach(btn=>{
-      btn.onclick = ()=> removeFromRoster(btn.getAttribute('data-del-pid'));
-    });
-  }
 
   // ---------- Scheduler & Calendar ----------
   async function onAddSchedule(){
+    $('#sch-err').textContent='';
     const dateRaw=$('#sch-date').value, time=$('#sch-time').value, field=$('#sch-field').value.trim(), comp=$('#sch-comp').value.trim();
     const home=$('#sch-home').value.trim(), away=$('#sch-away').value.trim();
     const date = normDate(dateRaw);
-    if(!date || !home || !away) return alert('Date, Home, Away required');
+    if(!date || !home || !away){ $('#sch-err').textContent='Date, Home, Away required'; return; }
     const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
-    const schedule=[...(data.schedule||[]), { id, date, time, field, comp, home, away }];
-    await saveTeamDoc({ schedule });
-    // clear a few fields (keep date/home/away to add faster)
+    const newGame = { id, date, time, field, comp, home, away };
+
+    // optimistic update (update UI immediately)
+    data.schedule = [...(data.schedule||[]), newGame];
+    renderScheduleList(); renderCalendar();
+
+    try{
+      await saveTeamDoc({ schedule: data.schedule });
+      setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
+    }catch(e){
+      console.error(e);
+      $('#sch-err').textContent='Save failed — check Firestore rules/config.';
+      // revert optimistic add on failure
+      data.schedule = data.schedule.filter(g=>g.id!==id);
+      renderScheduleList(); renderCalendar();
+    }
+
+    // keep some fields for quick multiple adds
     $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
-    renderCalendar(); renderScheduleList();
   }
 
   function getScheduleArray(){ return Array.isArray(data.schedule) ? data.schedule : asArray(data.schedule); }
-
   function sortByDateTime(a,b){
     const da = (a?.date? a.date : ''), db = (b?.date? b.date : '');
     if (da !== db) return da < db ? -1 : 1;
-    const ta = (a?.time||''); const tb=(b?.time||'');
+    const ta = (a?.time||''), tb=(b?.time||'');
     return ta < tb ? -1 : (ta > tb ? 1 : 0);
   }
 
@@ -601,9 +607,20 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   async function deleteSchedule(sid){
     if(!sid) return;
     if(!confirm('Delete this game from the schedule?')) return;
-    const schedule = getScheduleArray().filter(g=>g.id!==sid);
-    await saveTeamDoc({ schedule });
+    // optimistic
+    const before = data.schedule;
+    data.schedule = getScheduleArray().filter(g=>g.id!==sid);
     renderCalendar(); renderScheduleList();
+    try{
+      await saveTeamDoc({ schedule: data.schedule });
+      setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
+    }catch(e){
+      console.error(e);
+      // revert on failure
+      data.schedule = before;
+      renderCalendar(); renderScheduleList();
+      alert('Delete failed — check Firestore rules/config.');
+    }
   }
 
   function renderCalendar(){
@@ -640,6 +657,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     }
   }
 
+  // ---------- Game modal (unchanged core behavior) ----------
   async function openGameModalFromSchedule(g, dateStr){
     const our = data.team?.name?.trim() || '';
     let isHome = true, opponent = g.away || 'Opponent';
@@ -670,14 +688,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#game-modal').style.display='flex';
     setGameTab('setup');
   }
-
   function closeGameModal(){
     $('#game-modal').style.display='none';
     stopGameListener();
     currentGameId=null; currentGame=null;
   }
-
-  // ---------- Game realtime ----------
   function stopGameListener(){ if (unsubGame){ unsubGame(); unsubGame=null; } }
   function startGameListener(gameId){
     stopGameListener();
@@ -691,6 +706,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       updateLiveViews();
     });
   }
+
+  // --- helpers reused from R16 (unchanged) ---
   function updateGameHeader(){
     if(!currentGame) return;
     const title = `${currentGame.meta?.date||'?'} • ${currentGame.meta?.isHome?'Home':'Away'} vs ${currentGame.meta?.opponent||'?'}`;
@@ -703,16 +720,12 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-bug-score').textContent = `${score.home}–${score.away}`;
     $('#gm-bug-inning').textContent = `${half} ${currentGame.inning?.number||1} • ${outs} out`;
   }
-
-  // ---------- Tabs ----------
   function setGameTab(which){
     $('#gm-tab-setup').classList.toggle('active', which==='setup');
     $('#gm-tab-live').classList.toggle('active', which==='live');
     $('#gm-setup').classList.toggle('active', which==='setup');
     $('#gm-live').classList.toggle('active', which==='live');
   }
-
-  // ---------- Pregame ----------
   const POSITIONS=['P','C','1B','2B','3B','SS','LF','LCF','RCF','RF'];
   function renderPregameBuilders(){
     if(!currentGame) return;
@@ -771,8 +784,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-pregame-msg').textContent='Saved. Game is LIVE.';
     setTimeout(()=>$('#gm-pregame-msg').textContent='',2000);
   }
-
-  // ---------- Live ----------
   function updateLiveViews(){
     if(!currentGame) return;
     populateBatterSelect();
