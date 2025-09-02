@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R14</title>
+<title>StatsDonkey — R15</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -32,6 +32,7 @@ label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:4px}
 .cell .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px;cursor:pointer}
 .cell .events li:hover{outline:1px solid #334155}
+.empty-hint{grid-column:1/-1;text-align:center;color:#94a3b8;padding:8px}
 
 nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
 nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
@@ -73,7 +74,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <div class="wrap">
     <div class="brand">StatsDonkey</div>
     <div class="spacer"></div>
-    <span class="small">BUILD R14</span>
+    <span class="small">BUILD R15</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -352,6 +353,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   async function sha256Hex(text){ const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
   async function teamIdHash(team, pass){ return sha256Hex((team||'').trim().toLowerCase() + '|' + (pass||'')); }
   async function playerIdFor(first,last,dob){ return sha256Hex(`${(first||'').trim().toLowerCase()}|${(last||'').trim().toLowerCase()}|${(dob||'').trim()}`); }
+  const asArray = (x)=> Array.isArray(x) ? x : (x ? Object.values(x) : []);
 
   // ---------- State ----------
   let teamDocId = null, unsubTeam = null, unsubGame = null;
@@ -367,11 +369,19 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   function startTeamListener(){
     stopTeamListener();
     unsubTeam = onSnapshot(doc(db, "teams", teamDocId), async snap=>{
-      if (snap.exists()){
-        data = snap.data();
-        await preloadRosterPlayers();
-        hydrateUI();
-      }
+      if (!snap.exists()) return;
+      const raw = snap.data() || {};
+      // Normalize roster/schedule to arrays
+      const normRoster   = asArray(raw.roster);
+      const normSchedule = asArray(raw.schedule);
+      // If they were objects before, migrate them back to the doc as arrays (once)
+      if (!Array.isArray(raw.roster)   && normRoster.length)   setDoc(doc(db,"teams",teamDocId), { roster: normRoster }, { merge:true });
+      if (!Array.isArray(raw.schedule) && normSchedule.length) setDoc(doc(db,"teams",teamDocId), { schedule: normSchedule }, { merge:true });
+
+      data = { ...raw, roster: normRoster, schedule: normSchedule };
+      await preloadRosterPlayers();
+      hydrateUI();
+      setDbg(`synced • roster:${data.roster.length} • games:${data.schedule.length}`);
     });
   }
   function stopTeamListener(){ if (unsubTeam){ unsubTeam(); unsubTeam=null; } }
@@ -569,14 +579,17 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     if(!date || !home || !away) return alert('Date, Home, Away required');
     const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
     const schedule=[...(data.schedule||[]), { id, date, time, field, comp, home, away }];
-    await saveTeamDoc({ schedule }); $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
+    await saveTeamDoc({ schedule });
+    $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value='';
     renderCalendar(); renderScheduleList();
   }
 
+  function getScheduleArray(){ return Array.isArray(data.schedule) ? data.schedule : asArray(data.schedule); }
+
   function renderScheduleList(){
     const headers=['Date','Time','Home','Away','Field','Comp','Actions'];
-    const sorted = [...(data.schedule||[])].sort((a,b)=>{
-      const ta = new Date(`${a.date}T${a.time||'00:00'}`); const tb = new Date(`${b.date}T${b.time||'00:00'}`);
+    const sorted = [...getScheduleArray()].sort((a,b)=>{
+      const ta = new Date(`${a.date||''}T${a.time||'00:00'}`); const tb = new Date(`${b.date||''}T${b.time||'00:00'}`);
       return ta - tb;
     });
     const body = sorted.map(g=>`<tr>
@@ -592,30 +605,42 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   async function deleteSchedule(sid){
     if(!sid) return;
     if(!confirm('Delete this game from the schedule?')) return;
-    const schedule = (data.schedule||[]).filter(g=>g.id!==sid);
+    const schedule = getScheduleArray().filter(g=>g.id!==sid);
     await saveTeamDoc({ schedule });
     renderCalendar(); renderScheduleList();
   }
 
   function renderCalendar(){
-    const m0=new Date(calCurrent.getFullYear(),calCurrent.getMonth(),1);
-    const m1=new Date(calCurrent.getFullYear(),calCurrent.getMonth()+1,0);
-    $('#cal-title').textContent=m0.toLocaleString(undefined,{month:'long',year:'numeric'});
-    const first=m0.getDay(),days=m1.getDate(); const grid=$('#cal-grid'); grid.innerHTML='';
-    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{const h=document.createElement('div'); h.className='cell head'; h.textContent=d; grid.appendChild(h);});
-    for(let i=0;i<first;i++){const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b);}
-    for(let day=1; day<=days; day++){
-      const cell=document.createElement('div'); cell.className='cell';
-      const ds=`${m0.getFullYear()}-${String(m0.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
-      const ul=document.createElement('ul'); ul.className='events';
-      (data.schedule||[]).filter(g=>String(g.date)===ds).forEach(g=>{
-        const li=document.createElement('li');
-        li.textContent = `${g.time||''} ${g.home||'Home'} vs ${g.away||'Away'}${g.field?(' @ '+g.field):''}${g.comp?(' — '+g.comp):''}`.trim();
-        li.onclick = ()=> openGameModalFromSchedule(g, ds);
-        ul.appendChild(li);
-      });
-      cell.appendChild(ul); grid.appendChild(cell);
+    try{
+      const sched = getScheduleArray();
+      const m0=new Date(calCurrent.getFullYear(),calCurrent.getMonth(),1);
+      const m1=new Date(calCurrent.getFullYear(),calCurrent.getMonth()+1,0);
+      $('#cal-title').textContent=m0.toLocaleString(undefined,{month:'long',year:'numeric'});
+      const first=m0.getDay(),days=m1.getDate(); const grid=$('#cal-grid'); grid.innerHTML='';
+      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{const h=document.createElement('div'); h.className='cell head'; h.textContent=d; grid.appendChild(h);});
+      for(let i=0;i<first;i++){const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b);}
+      let any=false;
+      for(let day=1; day<=days; day++){
+        const cell=document.createElement('div'); cell.className='cell';
+        const ds=`${m0.getFullYear()}-${String(m0.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
+        const ul=document.createElement('ul'); ul.className='events';
+        sched.filter(g=>String(g.date||'')===ds).forEach(g=>{
+          any=true;
+          const li=document.createElement('li');
+          li.textContent = `${g.time||''} ${g.home||'Home'} vs ${g.away||'Away'}${g.field?(' @ '+g.field):''}${g.comp?(' — '+g.comp):''}`.trim();
+          li.onclick = ()=> openGameModalFromSchedule(g, ds);
+          ul.appendChild(li);
+        });
+        cell.appendChild(ul); grid.appendChild(cell);
+      }
+      if(!any){
+        const hint=document.createElement('div'); hint.className='empty-hint'; hint.textContent='No games scheduled this month';
+        grid.appendChild(hint);
+      }
+    }catch(e){
+      console.error('renderCalendar error', e);
+      $('#cal-grid').innerHTML = `<div class="empty-hint">Calendar error — open console</div>`;
     }
   }
 
