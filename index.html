@@ -137,16 +137,27 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 
 <script>
-// ===== CONFIG =====
-// TODO: paste your firebaseConfig here (from Firebase Console > Project settings > General > Your apps)
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "PASTE",
-  authDomain: "PASTE.firebaseapp.com",
-  projectId: "PASTE",
-  storageBucket: "PASTE.appspot.com",
-  messagingSenderId: "PASTE",
-  appId: "PASTE"
+  apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
+  authDomain: "statsdonkey-c276c.firebaseapp.com",
+  projectId: "statsdonkey-c276c",
+  storageBucket: "statsdonkey-c276c.firebasestorage.app",
+  messagingSenderId: "456849470787",
+  appId: "1:456849470787:web:0479b3dc8ca976296c2bf6",
+  measurementId: "G-T670NG1LYF"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 // ==================
 
 const DEFAULT_TEAM = "Argos";
