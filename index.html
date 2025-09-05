@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R29</title>
+<title>StatsDonkey — R31</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -34,7 +34,7 @@ label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:4px}
 .empty-hint{grid-column:1/-1;text-align:center;color:#94a3b8;padding:8px}
 
 .plink{cursor:pointer;color:#93c5fd;text-decoration:underline}
-nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid #1f2937;backdrop-filter:blur(6px)}
 nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
 .brand{font-weight:800;color:#4ade80} .spacer{flex:1}
 #debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
@@ -75,6 +75,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .runners{display:flex;gap:6px;flex-wrap:wrap}
 .runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
 .runner.sel{outline:2px solid var(--acc)}
+
+/* Make ANY element with data-pid look clickable */
+[data-pid]{cursor:pointer}
 </style>
 </head>
 <body>
@@ -83,7 +86,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R29</span>
+    <span class="small">BUILD R31</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -432,8 +435,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     s = String(s).trim();
     if (s.includes('T')) return s.slice(0,10);
     let m;
-    if ((m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/))) return `${m[1]}-${z2(m[2])}-${z2(m[3])}`;
-    if ((m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/))) return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
+    if ((m = s.match(/^(\\d{4})[-\\/](\\d{1,2})[-\\/](\\d{1,2})/))) return `${m[1]}-${z2(m[2])}-${z2(m[3])}`;
+    if ((m = s.match(/^(\\d{1,2})[-\\/](\\d{1,2})[-\\/](\\d{4})$/))) return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
     const d = new Date(s);
     if (!isNaN(d)) return `${d.getFullYear()}-${z2(d.getMonth()+1)}-${z2(d.getDate())}`;
     return s;
@@ -582,17 +585,14 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#pp-scope-stats').onchange = ()=> refreshPlayerStats();
 
     // Global delegated click: ANYTHING with data-pid opens the profile
-    document.addEventListener('click', (ev) => {
+    document.addEventListener('click', (ev)=>{
       const tgt = ev.target.closest('[data-pid]');
       if (!tgt) return;
       const pid = tgt.getAttribute('data-pid');
       if (!pid) return;
       ev.preventDefault();
       openPlayerProfile(pid);
-       if (typeof window.openPlayerProfile === 'function') {
-        window.openPlayerProfile(pid);
-      }
-    });
+    }, true); // capture so nothing can swallow it
 
     setDbg('ready');
   })();
@@ -670,7 +670,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const term=$('#srch-name').value.trim().toLowerCase(); const dob=$('#srch-dob').value; const out=$('#srch-results'); out.innerHTML='';
     if(!term){ out.textContent='Enter a name to search.'; return; }
     try{
-      const qy=query(collection(db,"players"), orderBy('nameNorm'), startAt(term), endAt(term+'\uf8ff'), limit(25));
+      const qy=query(collection(db,"players"), orderBy('nameNorm'), startAt(term), endAt(term+'\\uf8ff'), limit(25));
       const snap=await getDocs(qy); let list=snap.docs.map(d=>({id:d.id,...d.data()})); if(dob) list=list.filter(r=>(r.dob||'')===dob);
       if(!list.length){ out.textContent='No matches.'; return; }
       const numDefault=$('#srch-num').value?Number($('#srch-num').value):undefined;
@@ -911,7 +911,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           const pid = await ensureAnonPlayer(first,last,'R');
           ids.push(pid);
         }
-        await setDoc(ref, { away:{ ...(currentGame.away||{}), roster: ids } }, {merge:true});
+        setDoc(ref, { away:{ ...(currentGame.away||{}), roster: ids } }, {merge:true});
         return;
       }
 
@@ -1167,9 +1167,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const opt=document.createElement('option');
       opt.value=pid; opt.textContent = nameForId(pid);
       sel.appendChild(opt);
-   Uncaught ReferenceError: advanceBatter is not defined
-    at initUI (statsdonkey/:542:36)
-    at statsdonkey/:598:5
+    });
+    const idx = currentGame[side]?.batterIndex || 0;
+    sel.selectedIndex = (arr.length? (idx%arr.length) : -1);
+  }
+
   function updateGameHeader(){
     if(!currentGame) return;
     $('#gm-title').textContent = `${currentGame.home?.name||'Home'} vs ${currentGame.away?.name||currentGame.meta?.opponent||'Away'} — ${currentGame.meta?.date||''}`;
@@ -1178,6 +1180,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-bug-score').textContent = `${s.home}–${s.away}`;
     $('#gm-bug-inning').textContent = `${currentGame.inning?.half==='top'?'Top':'Bot'} ${currentGame.inning?.number||1} • ${currentGame.inning?.outs||0} out`;
   }
+
   // helper to render clickable who labels
   function setWho(sel, pid){
     const el=$(sel);
@@ -1276,6 +1279,14 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
     pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null,second:null,third:null }, scored:[] };
     $('#gm-base-msg').textContent='Play saved';
+  }
+
+  function advanceBatter(){
+    const side = $('#gm-sel-side').value;
+    const len = (currentGame?.[side]?.lineup||[]).length||0;
+    if(!len) return;
+    const next = (((currentGame?.[side]?.batterIndex||0)+1)%len);
+    setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
   }
 
   async function undoLast(){
@@ -1508,12 +1519,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const msg = document.createElement('div');
       msg.className = 'small bad';
       msg.textContent = 'Failed to load player: ' + (err.message || String(err));
-            const info = $('#pp-info');
-      info.querySelectorAll('.small.bad').forEach(n => n.remove());
-      info.prepend(msg);
+      $('#pp-info').prepend(msg);
     }
   }
-  // expose for safety
   window.openPlayerProfile = openPlayerProfile;
 
   // expose helpers used by the small modal module at bottom
@@ -1522,7 +1530,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   window.pending = pending;
 </script>
 
-<!-- Result modal -->
+<!-- Result modal for play entry -->
 <div id="modal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:60;pointer-events:none">
   <div class="modal-card" style="background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px;pointer-events:auto">
     <h3 style="margin-top:0">Play details</h3>
@@ -1564,11 +1572,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   document.getElementById('md-hard').onchange   = (e)=>{ window.pending.hard = e.target.value; };
   document.getElementById('md-close').onclick   = ()=> document.getElementById('modal').style.display='none';
   document.getElementById('md-save').onclick    = ()=> { document.getElementById('modal').style.display='none'; window.savePlay?.(); };
-
-    // warn if the global profile handler is missing
-  if (!window.openPlayerProfile) {
-    console.warn('openPlayerProfile missing');
-  }
 </script>
 
 <noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
