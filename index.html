@@ -1565,8 +1565,10 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   document.getElementById('md-close').onclick   = ()=> document.getElementById('modal').style.display='none';
   document.getElementById('md-save').onclick    = ()=> { document.getElementById('modal').style.display='none'; window.savePlay?.(); };
 
-  // safety shim
-  window.openPlayerProfile = window.openPlayerProfile || (pid => {});
+    // warn if the global profile handler is missing
+  if (!window.openPlayerProfile) {
+    console.warn('openPlayerProfile missing');
+  }
 </script>
 
 <noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
