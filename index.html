@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R27</title>
+<title>StatsDonkey — R28</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -83,7 +83,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R27</span>
+    <span class="small">BUILD R28</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -286,7 +286,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           <svg id="gm-diamond" width="360" height="360" viewBox="0 0 100 100" aria-label="Hit location">
             <rect x="0" y="0" width="100" height="100" fill="#0b1326" rx="6" ry="6" />
             <circle cx="50" cy="70" r="28" fill="#0e1630" stroke="#1f2937"/>
-            <circle cx="50" cy="70" r="18" fill="#0b1326" stroke="#1f2937"/>
+            <circle cx="50" cy="70" r="18" fill="#0e1630" stroke="#1f2937"/>
             <polygon points="50,40 70,60 50,80 30,60" fill="#0e1630" stroke="#1f2937"/>
             <rect x="48" y="78" width="4" height="4" fill="#cbd5e1" transform="rotate(45 50 80)"/>
             <rect x="68" y="58" width="4" height="4" fill="#cbd5e1" transform="rotate(45 70 60)"/>
@@ -686,8 +686,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           btn.replaceWith((()=>{const t=document.createElement('span'); t.className='small'; t.style.color='#34d399'; t.textContent='Added'; return t; })());
         };
       });
-      // names clickable from search too
-      out.querySelectorAll('.link[data-pid]').forEach(a => a.onclick = () => openPlayerProfile(a.getAttribute('data-pid')));
+      // names clickable from search too (delegated listener also handles it)
     }catch(e){ console.error(e); out.textContent='Search failed.'; }
   }
 
@@ -708,7 +707,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $$('#tbl-roster button[data-del-pid]').forEach(btn=>{
       btn.onclick = ()=> removeFromRoster(btn.getAttribute('data-del-pid'));
     });
-    // names clickable handled by delegated listener below
   }
 
   // ---------- Stats (team table; names clickable) ----------
@@ -1432,9 +1430,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   }
   function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
 
-  // ---------- UPDATED: Player Profile opener (opens immediately) ----------
+  // ---------- Player Profile opener (OPEN FIRST, then load) ----------
   async function openPlayerProfile(pid){
-    // Open modal first
+    // Open modal first so user sees it instantly
     $('#player-modal').style.display = 'flex';
     setPlayerTab('info');
     $('#pp-title').textContent = 'Loading…';
@@ -1448,7 +1446,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
     try{
       PP = { pid, player:null, teamRow:(data.roster||[]).find(r=>r.playerId===pid)||null, playsCache:null, scopes:[] };
-
       const snap = await getDoc(doc(db,"players",pid));
       PP.player = snap.exists() ? snap.data() : { first:'', last:'', dob:'', bats:'R', ranks:{}, photo:'' };
       playerCache.set(pid, PP.player);
@@ -1476,7 +1473,16 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     }
   }
 
-  // ---------- Mini result modal (inside game modal) ----------
+  // **CRITICAL**: expose to window so delegated clicks can call it
+  window.openPlayerProfile = openPlayerProfile;
+
+  // Also delegate clicks here (belt-and-suspenders)
+  document.addEventListener('click', (ev)=>{
+    const el = ev.target.closest('.link[data-pid]');
+    if (!el) return;
+    ev.preventDefault();
+    openPlayerProfile(el.getAttribute('data-pid'));
+  });
 </script>
 
 <!-- Result modal -->
@@ -1522,18 +1528,18 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   document.getElementById('md-close').onclick   = ()=> document.getElementById('modal').style.display='none';
   document.getElementById('md-save').onclick    = ()=> { document.getElementById('modal').style.display='none'; window.savePlay?.(); };
 
-  // ---------- Delegated click for ANY ".link[data-pid]" (Roster, Stats, Search) ----------
+  // Keep a global stub for safety (first module also binds)
+  window.openPlayerProfile = window.openPlayerProfile || (pid => {});
+  window.autoPlaceBatterPreview = window.autoPlaceBatterPreview || (()=>{});
+  window.pending = window.pending || { result:'1B', hard:'Medium' };
+
+  // Extra delegation (will call the bound window.openPlayerProfile)
   document.addEventListener('click', (ev)=>{
     const el = ev.target.closest('.link[data-pid]');
     if (!el) return;
     ev.preventDefault();
-    (window.openPlayerProfile || (()=>{}))(el.getAttribute('data-pid'));
+    window.openPlayerProfile(el.getAttribute('data-pid'));
   });
-
-  // Expose a couple things used above
-  window.autoPlaceBatterPreview = window.autoPlaceBatterPreview || (()=>{});
-  window.pending = window.pending || { result:'1B', hard:'Medium' };
-  window.openPlayerProfile = window.openPlayerProfile || (pid => { /* replaced after module load */ });
 </script>
 
 <noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
