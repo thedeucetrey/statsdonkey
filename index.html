@@ -1,365 +1,423 @@
- .cal-header{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
-  .cell{background:#0b1326;border:1px solid var(--line);border-radius:12px;min-height:84px;padding:6px}
-  .cell.head{background:transparent;border:none;text-align:center;font-weight:700}
-  .cell.blank{background:transparent;border:none}
-  .cell .date{font-weight:800;color:#cbd5e1;margin-bottom:6px}
-  .cell .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-  .cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px;cursor:pointer}
-  .cell .events li:hover{outline:1px solid #334155}
-  .empty-hint{grid-column:1/-1;text-align:center;color:#94a3b8;padding:8px}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>StatsDonkey — R29</title>
+<style>
+:root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
+*{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.container{max-width:980px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);padding:var(--pad);box-shadow:0 8px 24px rgba(0,0,0,.25);margin-bottom:var(--pad)}
+.hidden{display:none!important} .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.input,select{width:100%;background:#0b1220;color:var(--fg);border:1px solid #334155;border-radius:12px;padding:12px}
+label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:4px}
+.btn{background:var(--acc);color:#06220f;border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
+.btn.outline{background:transparent;color:var(--acc);border:1px solid var(--acc)} .btn.small{padding:8px 10px;font-size:12px}
+.small{font-size:12px;color:#94a3b8}
+.table{width:100%;border-collapse:separate;border-spacing:0;margin-top:10px}
+.table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+.table thead th{position:sticky;top:0;background:var(--card);z-index:1}
+.hr{border-top:1px solid var(--line);opacity:.6;margin:14px 0}
+.scroll{overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}
+.scroll.roster{max-height:50vh} .scroll.stats{max-height:50vh}
 
-  .plink{cursor:pointer;color:#93c5fd;text-decoration:underline}
-  nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
-  nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
-  .brand{font-weight:800;color:#4ade80} .spacer{flex:1}
-  #debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
-  .bad{color:#f87171}
-  .tag{display:inline-block;padding:4px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px}
+.cal-header{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cell{background:#0b1326;border:1px solid var(--line);border-radius:12px;min-height:84px;padding:6px}
+.cell.head{background:transparent;border:none;text-align:center;font-weight:700}
+.cell.blank{background:transparent;border:none}
+.cell .date{font-weight:800;color:#cbd5e1;margin-bottom:6px}
+.cell .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.cell .events li{font-size:12px;color:#e5e7eb;background:#0f172a;border:1px solid #1f2937;padding:4px 6px;border-radius:8px;cursor:pointer}
+.cell .events li:hover{outline:1px solid #334155}
+.empty-hint{grid-column:1/-1;text-align:center;color:#94a3b8;padding:8px}
 
-  /* GAME MODAL */
-  #game-modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
-  .gm-card{background:#0f172a;border:1px solid #1f2937;border-radius:18px;max-width:1100px;width:100%;max-height:92vh;display:flex;flex-direction:column}
-  .gm-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1f2937}
-  .gm-title{font-weight:800}
-  .gm-spacer{flex:1}
-  .gm-scorebug{display:inline-flex;gap:8px;align-items:center;background:#0b1326;border:1px solid #1f2937;border-radius:999px;padding:6px 10px}
-  .gm-body{padding:12px;overflow:auto}
-  .gm-tabs{display:flex;gap:8px;margin-bottom:10px}
-  .gm-tab{background:transparent;border:1px solid #334155;border-radius:999px;padding:8px 12px;color:#e5e7eb;cursor:pointer}
-  .gm-tab.active{border-color:var(--acc);color:var(--acc)}
-  #gm-setup,#gm-live{display:none}
-  #gm-setup.active,#gm-live.active{display:block}
+.plink{cursor:pointer;color:#93c5fd;text-decoration:underline}
+nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
+.brand{font-weight:800;color:#4ade80} .spacer{flex:1}
+#debug{position:fixed;right:8px;bottom:8px;background:#0b1326;border:1px solid #1f2937;border-radius:10px;padding:6px 8px;font-size:12px;opacity:.9}
+.bad{color:#f87171}
+.tag{display:inline-block;padding:4px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px}
 
-  /* PLAYER MODAL */
-  #player-modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:16px;z-index:70}
-  .pm-card{background:#0f172a;border:1px solid #1f2937;border-radius:18px;max-width:1000px;width:100%;max-height:92vh;display:flex;flex-direction:column}
-  .pm-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1f2937}
-  .pm-title{font-weight:800}
-  .pm-body{padding:12px;overflow:auto}
-  .pm-tabs{display:flex;gap:8px;margin-bottom:10px}
-  .pm-tab{background:transparent;border:1px solid #334155;border-radius:999px;padding:8px 12px;color:#e5e7eb;cursor:pointer}
-  .pm-tab.active{border-color:var(--acc);color:var(--acc)}
-  #pp-info,#pp-spray,#pp-stats{display:none}
-  #pp-info.active,#pp-spray.active,#pp-stats.active{display:block}
-  .pm-photo{width:120px;height:120px;object-fit:cover;border-radius:12px;border:1px solid #334155;background:#0b1326}
+/* GAME MODAL */
+#game-modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+.gm-card{background:#0f172a;border:1px solid #1f2937;border-radius:18px;max-width:1100px;width:100%;max-height:92vh;display:flex;flex-direction:column}
+.gm-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1f2937}
+.gm-title{font-weight:800}
+.gm-spacer{flex:1}
+.gm-scorebug{display:inline-flex;gap:8px;align-items:center;background:#0b1326;border:1px solid #1f2937;border-radius:999px;padding:6px 10px}
+.gm-body{padding:12px;overflow:auto}
+.gm-tabs{display:flex;gap:8px;margin-bottom:10px}
+.gm-tab{background:transparent;border:1px solid #334155;border-radius:999px;padding:8px 12px;color:#e5e7eb;cursor:pointer}
+.gm-tab.active{border-color:var(--acc);color:var(--acc)}
+#gm-setup,#gm-live{display:none}
+#gm-setup.active,#gm-live.active{display:block}
 
-  #gm-diamond{background:#0b1326;border:1px solid #1f2937;border-radius:12px;padding:8px;cursor:crosshair}
-  .basegrid{display:grid;grid-template-columns:repeat(3,100px);grid-auto-rows:76px;gap:10px}
-  .base{border:1px solid #334155;border-radius:12px;padding:8px}
-  .base .who{display:block;margin-top:6px;font-size:12px;color:#e5e7eb}
-  .runners{display:flex;gap:6px;flex-wrap:wrap}
-  .runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
-  .runner.sel{outline:2px solid var(--acc)}
+/* PLAYER MODAL */
+#player-modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:16px;z-index:70}
+.pm-card{background:#0f172a;border:1px solid #1f2937;border-radius:18px;max-width:1000px;width:100%;max-height:92vh;display:flex;flex-direction:column}
+.pm-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1f2937}
+.pm-title{font-weight:800}
+.pm-body{padding:12px;overflow:auto}
+.pm-tabs{display:flex;gap:8px;margin-bottom:10px}
+.pm-tab{background:transparent;border:1px solid #334155;border-radius:999px;padding:8px 12px;color:#e5e7eb;cursor:pointer}
+.pm-tab.active{border-color:var(--acc);color:var(--acc)}
+#pp-info,#pp-spray,#pp-stats{display:none}
+#pp-info.active,#pp-spray.active,#pp-stats.active{display:block}
+.pm-photo{width:120px;height:120px;object-fit:cover;border-radius:12px;border:1px solid #334155;background:#0b1326}
 
-      <div class="brand">StatsDonkey</div>
-      <div id="nav-status" class="small"></div>
-      <div class="spacer"></div>
-      <span class="small">BUILD R29</span>
-      <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
+#gm-diamond{background:#0b1326;border:1px solid #1f2937;border-radius:12px;padding:8px;cursor:crosshair}
+.basegrid{display:grid;grid-template-columns:repeat(3,100px);grid-auto-rows:76px;gap:10px}
+.base{border:1px solid #334155;border-radius:12px;padding:8px}
+.base .who{display:block;margin-top:6px;font-size:12px;color:#e5e7eb}
+.runners{display:flex;gap:6px;flex-wrap:wrap}
+.runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
+.runner.sel{outline:2px solid var(--acc)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <div class="brand">StatsDonkey</div>
+    <div id="nav-status" class="small"></div>
+    <div class="spacer"></div>
+    <span class="small">BUILD R29</span>
+    <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
+  </div>
+</nav>
 
-      <h2>Team Login</h2>
-      <p class="small">Enter <b>Team</b> and <b>Password</b>. First login creates the team. Any device with the same team+password loads the same data.</p>
-      <div class="row">
-        <input id="team-id" class="input" placeholder="Team (e.g., Argos)" autocomplete="off" autocapitalize="none" spellcheck="false"
-  style="max-width:280px"/>
-        <input id="team-pass" class="input" type="password" placeholder="Password" autocomplete="new-password" style="max-width:220px"/>
-        <button id="btn-login" class="btn" type="button">Log in</button>
-      </div>
-      <div id="login-error" class="small bad" style="margin-top:6px"></div>
+<main class="container">
+  <!-- LOGIN -->
+  <section id="view-login" class="card">
+    <h2>Team Login</h2>
+    <p class="small">Enter <b>Team</b> and <b>Password</b>. First login creates the team. Any device with the same team+password loads the same data.</p>
+    <div class="row">
+      <input id="team-id" class="input" placeholder="Team (e.g., Argos)" autocomplete="off" autocapitalize="none" spellcheck="false" style="max-width:280px"/>
+      <input id="team-pass" class="input" type="password" placeholder="Password" autocomplete="new-password" style="max-width:220px"/>
+      <button id="btn-login" class="btn" type="button">Log in</button>
+    </div>
+    <div id="login-error" class="small bad" style="margin-top:6px"></div>
+  </section>
 
-      <h2>1) Team profile</h2>
-      <div class="row">
-        <input id="team-name" class="input" placeholder="Team name" style="min-width:260px"/>
-        <input id="team-logo" type="file" accept="image/*" class="input" style="min-width:260px"/>
-        <button id="btn-save-team" class="btn" type="button">Save profile</button>
-      </div>
-      <div class="small">Logo preview:</div>
-      <img id="logo-preview" alt="logo" style="max-width:160px;max-height:160px;border:1px solid var(--line);border-radius:12px;display:none"/>
+  <!-- TEAM PROFILE -->
+  <section id="sec-team" class="card hidden">
+    <h2>1) Team profile</h2>
+    <div class="row">
+      <input id="team-name" class="input" placeholder="Team name" style="min-width:260px"/>
+      <input id="team-logo" type="file" accept="image/*" class="input" style="min-width:260px"/>
+      <button id="btn-save-team" class="btn" type="button">Save profile</button>
+    </div>
+    <div class="small">Logo preview:</div>
+    <img id="logo-preview" alt="logo" style="max-width:160px;max-height:160px;border:1px solid var(--line);border-radius:12px;display:none"/>
+  </section>
 
-      <h2>2) Roster</h2>
-      <div class="row">
-        <div style="max-width:160px;flex:1 1 160px"><label for="pf-first">First</label><input id="pf-first" class="input" placeholder="First"></div>
-        <div style="max-width:160px;flex:1 1 160px"><label for="pf-last">Last</label><input id="pf-last" class="input" placeholder="Last"></div>
-        <div style="max-width:170px;flex:1 1 170px"><label for="pf-dob">DOB</label><input id="pf-dob" class="input" type="date" aria-label="DOB"
-  placeholder="YYYY-MM-DD"></div>
-        <div style="max-width:240px;flex:1 1 240px"><label for="pf-pos">Position(s)</label><input id="pf-pos" class="input" placeholder="e.g., SS, 3B,
-  OF"></div>
-        <div style="max-width:90px;flex:1 1 90px"><label for="pf-num">#</label><input id="pf-num" class="input" type="number" placeholder="#"></div>
-        <div style="max-width:140px;flex:1 1 140px"><label for="pf-bats">Bats</label>
-          <select id="pf-bats" class="input">
-            <option value="R">Right</option>
-            <option value="L">Left</option>
-            <option value="S">Switch</option>
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <div style="max-width:180px;flex:1 1 180px"><label for="pf-nsa">NSA rank</label><input id="pf-nsa" class="input" placeholder="NSA"></div>
-        <div style="max-width:180px;flex:1 1 180px"><label for="pf-spn">SPN rank</label><input id="pf-spn" class="input" placeholder="SPN"></div>
-        <button id="btn-add-player" class="btn" type="button">Add New Player</button>
-        <span id="pf-err" class="small bad"></span>
-      </div>
-
-      <div class="hr"></div>
-
-      <!-- SEARCH EXISTING -->
-      <div class="row">
-        <div style="max-width:360px;flex:1 1 360px"><label for="srch-name">Search existing players</label><input id="srch-name" class="input"
-  placeholder="type a name…"></div>
-        <div style="max-width:180px;flex:1 1 180px"><label for="srch-dob">DOB (optional)</label><input id="srch-dob" class="input" type="date"></div>
-        <div style="max-width:120px;flex:1 1 120px"><label for="srch-num"># for team</label><input id="srch-num" class="input" type="number"
-  placeholder="#"></div>
-        <div style="max-width:220px;flex:1 1 220px"><label for="srch-pos">Position(s) for team</label><input id="srch-pos" class="input" placeholder="e.g.,
-  OF"></div>
-        <button id="btn-search" class="btn" type="button" style="align-self:flex-end">Search</button>
-      </div>
-      <div id="srch-results" class="small" style="margin-top:6px"></div>
-
-      <div id="roster-count" class="small" style="margin-top:10px"></div>
-      <div class="scroll roster"><table class="table" id="tbl-roster"></table></div>
-
-      <h2>3) Scheduler</h2>
-      <div class="row">
-        <input id="sch-date" class="input" type="date" style="max-width:170px"/>
-        <input id="sch-time" class="input" type="time" style="max-width:130px"/>
-        <input id="sch-field" class="input" placeholder="Field" style="max-width:180px"/>
-        <input id="sch-comp" class="input" placeholder="League/Tournament" style="max-width:220px"/>
-      </div>
-      <div class="row">
-        <select id="sch-ha" class="input" style="max-width:160px">
-          <option value="home">We are Home</option>
-          <option value="away">We are Away</option>
+  <!-- ROSTER -->
+  <section id="sec-roster" class="card hidden">
+    <h2>2) Roster</h2>
+    <div class="row">
+      <div style="max-width:160px;flex:1 1 160px"><label for="pf-first">First</label><input id="pf-first" class="input" placeholder="First"></div>
+      <div style="max-width:160px;flex:1 1 160px"><label for="pf-last">Last</label><input id="pf-last" class="input" placeholder="Last"></div>
+      <div style="max-width:170px;flex:1 1 170px"><label for="pf-dob">DOB</label><input id="pf-dob" class="input" type="date" aria-label="DOB" placeholder="YYYY-MM-DD"></div>
+      <div style="max-width:240px;flex:1 1 240px"><label for="pf-pos">Position(s)</label><input id="pf-pos" class="input" placeholder="e.g., SS, 3B, OF"></div>
+      <div style="max-width:90px;flex:1 1 90px"><label for="pf-num">#</label><input id="pf-num" class="input" type="number" placeholder="#"></div>
+      <div style="max-width:140px;flex:1 1 140px"><label for="pf-bats">Bats</label>
+        <select id="pf-bats" class="input">
+          <option value="R">Right</option>
+          <option value="L">Left</option>
+          <option value="S">Switch</option>
         </select>
-        <input id="sch-opp" class="input" placeholder="Opponent" style="max-width:260px"/>
-        <button id="btn-sch-add" class="btn" type="button">Add game</button>
-        <span id="sch-err" class="small bad"></span>
       </div>
+    </div>
+    <div class="row">
+      <div style="max-width:180px;flex:1 1 180px"><label for="pf-nsa">NSA rank</label><input id="pf-nsa" class="input" placeholder="NSA"></div>
+      <div style="max-width:180px;flex:1 1 180px"><label for="pf-spn">SPN rank</label><input id="pf-spn" class="input" placeholder="SPN"></div>
+      <button id="btn-add-player" class="btn" type="button">Add New Player</button>
+      <span id="pf-err" class="small bad"></span>
+    </div>
 
-      <div class="hr"></div>
-      <div class="small">Scheduled games (delete from here). Click games on the Calendar to open the tracker.</div>
-      <div class="scroll" style="max-height:40vh">
-        <table class="table" id="tbl-schedule"></table>
+    <div class="hr"></div>
+
+    <!-- SEARCH EXISTING -->
+    <div class="row">
+      <div style="max-width:360px;flex:1 1 360px"><label for="srch-name">Search existing players</label><input id="srch-name" class="input" placeholder="type a name…"></div>
+      <div style="max-width:180px;flex:1 1 180px"><label for="srch-dob">DOB (optional)</label><input id="srch-dob" class="input" type="date"></div>
+      <div style="max-width:120px;flex:1 1 120px"><label for="srch-num"># for team</label><input id="srch-num" class="input" type="number" placeholder="#"></div>
+      <div style="max-width:220px;flex:1 1 220px"><label for="srch-pos">Position(s) for team</label><input id="srch-pos" class="input" placeholder="e.g., OF"></div>
+      <button id="btn-search" class="btn" type="button" style="align-self:flex-end">Search</button>
+    </div>
+    <div id="srch-results" class="small" style="margin-top:6px"></div>
+
+    <div id="roster-count" class="small" style="margin-top:10px"></div>
+    <div class="scroll roster"><table class="table" id="tbl-roster"></table></div>
+  </section>
+
+  <!-- SCHEDULER -->
+  <section id="sec-schedule" class="card hidden">
+    <h2>3) Scheduler</h2>
+    <div class="row">
+      <input id="sch-date" class="input" type="date" style="max-width:170px"/>
+      <input id="sch-time" class="input" type="time" style="max-width:130px"/>
+      <input id="sch-field" class="input" placeholder="Field" style="max-width:180px"/>
+      <input id="sch-comp" class="input" placeholder="League/Tournament" style="max-width:220px"/>
+    </div>
+    <div class="row">
+      <select id="sch-ha" class="input" style="max-width:160px">
+        <option value="home">We are Home</option>
+        <option value="away">We are Away</option>
+      </select>
+      <input id="sch-opp" class="input" placeholder="Opponent" style="max-width:260px"/>
+      <button id="btn-sch-add" class="btn" type="button">Add game</button>
+      <span id="sch-err" class="small bad"></span>
+    </div>
+
+    <div class="hr"></div>
+    <div class="small">Scheduled games (delete from here). Click games on the Calendar to open the tracker.</div>
+    <div class="scroll" style="max-height:40vh">
+      <table class="table" id="tbl-schedule"></table>
+    </div>
+  </section>
+
+  <!-- CALENDAR -->
+  <section id="sec-calendar" class="card hidden">
+    <h2>4) Calendar</h2>
+    <div class="cal-header">
+      <button id="prev-month" class="btn outline small" type="button">◀</button>
+      <h3 id="cal-title" style="margin:0 10px"></h3>
+      <button id="next-month" class="btn outline small" type="button">▶</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </section>
+
+  <!-- STATS -->
+  <section id="sec-stats" class="card hidden">
+    <h2>5) Player stats (global)</h2>
+    <div class="scroll stats">
+      <table class="table sortable" id="tbl-stats"></table>
+    </div>
+    <p class="small">Totals come from plays recorded and the player's global profile.</p>
+  </section>
+</main>
+
+<!-- GAME TRACKER MODAL -->
+<div id="game-modal" role="dialog" aria-modal="true" aria-label="Game tracker">
+  <div class="gm-card">
+    <div class="gm-head">
+      <div class="gm-title" id="gm-title">Game</div>
+      <div class="gm-spacer"></div>
+      <div class="gm-scorebug">
+        <span id="gm-bug-opp" class="tag">vs ?</span>
+        <span id="gm-bug-score" class="tag">0–0</span>
+        <span id="gm-bug-inning" class="tag">Top 1 • 0 out</span>
       </div>
-
-      <h2>4) Calendar</h2>
-      <div class="cal-header">
-        <button id="prev-month" class="btn outline small" type="button">◀</button>
-        <h3 id="cal-title" style="margin:0 10px"></h3>
-        <button id="next-month" class="btn outline small" type="button">▶</button>
+      <button id="gm-close" class="btn outline small" type="button" aria-label="Close game tracker">Close</button>
+    </div>
+    <div class="gm-body">
+      <div class="gm-tabs">
+        <button id="gm-tab-setup" class="gm-tab active" type="button">Pregame</button>
+        <button id="gm-tab-live"  class="gm-tab" type="button">Live</button>
       </div>
-      <div class="cal-grid" id="cal-grid"></div>
-
-      <h2>5) Player stats (global)</h2>
-      <div class="scroll stats">
-        <table class="table sortable" id="tbl-stats"></table>
-      </div>
-      <p class="small">Totals come from plays recorded and the player's global profile.</p>
-
-      <div class="gm-head">
-        <div class="gm-title" id="gm-title">Game</div>
-        <div class="gm-spacer"></div>
-        <div class="gm-scorebug">
-          <span id="gm-bug-opp" class="tag">vs ?</span>
-          <span id="gm-bug-score" class="tag">0–0</span>
-          <span id="gm-bug-inning" class="tag">Top 1 • 0 out</span>
+      <div id="gm-setup" class="active">
+        <div class="row">
+          <div style="flex:1 1 420px;min-width:280px">
+            <div class="small" style="margin-bottom:6px">Home batting order (select from roster)</div>
+            <div id="gm-lineup-home"></div>
+          </div>
+          <div style="flex:1 1 420px;min-width:280px">
+            <div class="small" style="margin-bottom:6px">Home defense</div>
+            <div id="gm-defense-home"></div>
+          </div>
         </div>
-        <button id="gm-close" class="btn outline small" type="button" aria-label="Close game tracker">Close</button>
-      </div>
-      <div class="gm-body">
-        <div class="gm-tabs">
-          <button id="gm-tab-setup" class="gm-tab active" type="button">Pregame</button>
-          <button id="gm-tab-live"  class="gm-tab" type="button">Live</button>
-        </div>
-        <div id="gm-setup" class="active">
-          <div class="row">
-            <div style="flex:1 1 420px;min-width:280px">
-              <div class="small" style="margin-bottom:6px">Home batting order (select from roster)</div>
-              <div id="gm-lineup-home"></div>
-            </div>
-            <div style="flex:1 1 420px;min-width:280px">
-              <div class="small" style="margin-bottom:6px">Home defense</div>
-              <div id="gm-defense-home"></div>
-            </div>
-          </div>
 
-          <div class="hr"></div>
-          <h3 style="margin:0 0 8px">Opponent</h3>
+        <div class="hr"></div>
+        <h3 style="margin:0 0 8px">Opponent</h3>
 
-          <div class="row">
-            <div style="max-width:260px;flex:1 1 260px"><label for="gm-opp-name">Name</label><input id="gm-opp-name" class="input" placeholder="Opponent
-  name"></div>
-            <div style="max-width:220px;flex:1 1 220px"><label for="gm-opp-add">Add player</label><input id="gm-opp-add" class="input" placeholder="First
-  Last"></div>
-            <div style="max-width:140px;flex:1 1 140px"><label for="gm-opp-bats">Bats</label>
-              <select id="gm-opp-bats" class="input">
-                <option value="R">Right</option>
-                <option value="L">Left</option>
-                <option value="S">Switch</option>
-              </select>
-            </div>
-            <button id="gm-btn-opp-add" class="btn" type="button" style="align-self:flex-end">Add</button>
-          </div>
-
-          <div class="row">
-            <div style="max-width:340px;flex:1 1 340px">
-              <label for="gm-opp-saved">Saved opponent players</label>
-              <select id="gm-opp-saved" class="input"></select>
-            </div>
-            <button id="gm-btn-opp-use-saved" class="btn" type="button" style="align-self:flex-end">Add to lineup</button>
-            <span id="gm-opp-hint" class="small"></span>
-          </div>
-
-          <div class="row">
-            <div style="flex:1 1 420px;min-width:280px">
-              <div class="small" style="margin-bottom:6px">Opponent batting order</div>
-              <div id="gm-lineup-away"></div>
-            </div>
-            <div style="flex:1 1 420px;min-width:280px">
-              <div class="small" style="margin-bottom:6px">Opponent defense</div>
-              <div id="gm-defense-away"></div>
-            </div>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <button id="gm-save-pregame" class="btn" type="button">Save pregame</button>
-            <span class="small" id="gm-pregame-msg"></span>
-          </div>
-        </div>
-
-        <div id="gm-live">
-          <div class="row">
-            <select id="gm-sel-side" class="input" style="max-width:140px">
-              <option value="home">Home batting</option>
-              <option value="away">Away batting</option>
+        <div class="row">
+          <div style="max-width:260px;flex:1 1 260px"><label for="gm-opp-name">Name</label><input id="gm-opp-name" class="input" placeholder="Opponent name"></div>
+          <div style="max-width:220px;flex:1 1 220px"><label for="gm-opp-add">Add player</label><input id="gm-opp-add" class="input" placeholder="First Last"></div>
+          <div style="max-width:140px;flex:1 1 140px"><label for="gm-opp-bats">Bats</label>
+            <select id="gm-opp-bats" class="input">
+              <option value="R">Right</option>
+              <option value="L">Left</option>
+              <option value="S">Switch</option>
             </select>
-            <select id="gm-sel-batter" class="input" style="max-width:280px"></select>
-            <button id="gm-btn-advance" class="btn outline" type="button">Next batter</button>
-            <span class="small">Click the diamond to start a play.</span>
           </div>
+          <button id="gm-btn-opp-add" class="btn" type="button" style="align-self:flex-end">Add</button>
+        </div>
 
-          <div id="diamond-wrap" class="row" style="margin-top:8px">
-            <svg id="gm-diamond" width="360" height="360" viewBox="0 0 100 100" aria-label="Hit location">
-              <rect x="0" y="0" width="100" height="100" fill="#0b1326" rx="6" ry="6" />
-              <circle cx="50" cy="70" r="28" fill="#0e1630" stroke="#1f2937"/>
-              <circle cx="50" cy="70" r="18" fill="#0e1630" stroke="#1f2937"/>
-              <polygon points="50,40 70,60 50,80 30,60" fill="#0e1630" stroke="#1f2937"/>
-              <rect x="48" y="78" width="4" height="4" fill="#cbd5e1" transform="rotate(45 50 80)"/>
-              <rect x="68" y="58" width="4" height="4" fill="#cbd5e1" transform="rotate(45 70 60)"/>
-              <rect x="48" y="38" width="4" height="4" fill="#cbd5e1" transform="rotate(45 50 40)"/>
-              <rect x="28" y="58" width="4" height="4" fill="#cbd5e1" transform="rotate(45 30 60)"/>
-              <text x="50" y="14" text-anchor="middle" font-size="6" fill="#94a3b8">Click where the ball landed</text>
-            </svg>
-
-            <div>
-              <div class="small" style="margin-bottom:6px">Runners (click to select, then click a base)</div>
-              <div class="runners" id="gm-runner-chips"></div>
-              <div class="hr"></div>
-              <div class="small" style="margin-bottom:6px">Bases (click a name to open profile)</div>
-              <div class="basegrid">
-                <div></div>
-                <div class="base" data-base="2B"><b>2B</b><span class="who" id="gm-who-2B">—</span></div>
-                <div></div>
-                <div class="base" data-base="3B"><b>3B</b><span class="who" id="gm-who-3B">—</span></div>
-                <div class="base" data-base="HOME"><b>Home (score)</b><span class="who" id="gm-who-H">—</span></div>
-                <div class="base" data-base="1B"><b>1B</b><span class="who" id="gm-who-1B">—</span></div>
-              </div>
-              <div id="gm-base-msg" class="small" style="margin-top:6px"></div>
-              <div class="hr"></div>
-              <button id="gm-save-play" class="btn" type="button">Save play</button>
-              <button id="gm-undo" class="btn outline" type="button">Undo last</button>
-            </div>
+        <div class="row">
+          <div style="max-width:340px;flex:1 1 340px">
+            <label for="gm-opp-saved">Saved opponent players</label>
+            <select id="gm-opp-saved" class="input"></select>
           </div>
+          <button id="gm-btn-opp-use-saved" class="btn" type="button" style="align-self:flex-end">Add to lineup</button>
+          <span id="gm-opp-hint" class="small"></span>
+        </div>
 
-          <div class="hr"></div>
-          <h3>Box score</h3>
-          <div id="gm-boxscore" class="scroll" style="max-height:40vh"></div>
+        <div class="row">
+          <div style="flex:1 1 420px;min-width:280px">
+            <div class="small" style="margin-bottom:6px">Opponent batting order</div>
+            <div id="gm-lineup-away"></div>
+          </div>
+          <div style="flex:1 1 420px;min-width:280px">
+            <div class="small" style="margin-bottom:6px">Opponent defense</div>
+            <div id="gm-defense-away"></div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="gm-save-pregame" class="btn" type="button">Save pregame</button>
+          <span class="small" id="gm-pregame-msg"></span>
         </div>
       </div>
 
-      <div class="pm-head">
-        <div class="pm-title" id="pp-title">Player</div>
-        <div class="spacer"></div>
-        <button id="pp-close" class="btn outline small" type="button">Close</button>
-      </div>
-      <div class="pm-body">
-        <div class="pm-tabs">
-          <button id="pp-tab-info"  class="pm-tab active" type="button">Info</button>
-          <button id="pp-tab-spray" class="pm-tab" type="button">Spray</button>
-          <button id="pp-tab-stats" class="pm-tab" type="button">Stats</button>
+      <div id="gm-live">
+        <div class="row">
+          <select id="gm-sel-side" class="input" style="max-width:140px">
+            <option value="home">Home batting</option>
+            <option value="away">Away batting</option>
+          </select>
+          <select id="gm-sel-batter" class="input" style="max-width:280px"></select>
+          <button id="gm-btn-advance" class="btn outline" type="button">Next batter</button>
+          <span class="small">Click the diamond to start a play.</span>
         </div>
 
-        <div id="pp-info" class="active">
-          <div class="row">
-            <img id="pp-photo" class="pm-photo" alt="player photo"/>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <label>Change photo<input id="pp-photo-file" type="file" accept="image/*" class="input"></label>
+        <div id="diamond-wrap" class="row" style="margin-top:8px">
+          <svg id="gm-diamond" width="360" height="360" viewBox="0 0 100 100" aria-label="Hit location">
+            <rect x="0" y="0" width="100" height="100" fill="#0b1326" rx="6" ry="6" />
+            <circle cx="50" cy="70" r="28" fill="#0e1630" stroke="#1f2937"/>
+            <circle cx="50" cy="70" r="18" fill="#0e1630" stroke="#1f2937"/>
+            <polygon points="50,40 70,60 50,80 30,60" fill="#0e1630" stroke="#1f2937"/>
+            <rect x="48" y="78" width="4" height="4" fill="#cbd5e1" transform="rotate(45 50 80)"/>
+            <rect x="68" y="58" width="4" height="4" fill="#cbd5e1" transform="rotate(45 70 60)"/>
+            <rect x="48" y="38" width="4" height="4" fill="#cbd5e1" transform="rotate(45 50 40)"/>
+            <rect x="28" y="58" width="4" height="4" fill="#cbd5e1" transform="rotate(45 30 60)"/>
+            <text x="50" y="14" text-anchor="middle" font-size="6" fill="#94a3b8">Click where the ball landed</text>
+          </svg>
+
+          <div>
+            <div class="small" style="margin-bottom:6px">Runners (click to select, then click a base)</div>
+            <div class="runners" id="gm-runner-chips"></div>
+            <div class="hr"></div>
+            <div class="small" style="margin-bottom:6px">Bases (click a name to open profile)</div>
+            <div class="basegrid">
+              <div></div>
+              <div class="base" data-base="2B"><b>2B</b><span class="who" id="gm-who-2B">—</span></div>
+              <div></div>
+              <div class="base" data-base="3B"><b>3B</b><span class="who" id="gm-who-3B">—</span></div>
+              <div class="base" data-base="HOME"><b>Home (score)</b><span class="who" id="gm-who-H">—</span></div>
+              <div class="base" data-base="1B"><b>1B</b><span class="who" id="gm-who-1B">—</span></div>
             </div>
-          </div>
-
-          <div class="hr"></div>
-          <h3 style="margin:0 0 8px">Global profile</h3>
-          <div class="row">
-            <div style="max-width:180px;flex:1 1 180px"><label>First</label><input id="pp-first" class="input"></div>
-            <div style="max-width:180px;flex:1 1 180px"><label>Last</label><input id="pp-last" class="input"></div>
-            <div style="max-width:180px;flex:1 1 180px"><label>DOB</label><input id="pp-dob" class="input" type="date"></div>
-            <div style="max-width:120px;flex:1 1 120px"><label>Bats</label>
-              <select id="pp-bats" class="input"><option value="R">Right</option><option value="L">Left</option><option value="S">Switch</option></select>
-            </div>
-          </div>
-          <div class="row">
-            <div style="max-width:180px;flex:1 1 180px"><label>NSA rank</label><input id="pp-nsa" class="input"></div>
-            <div style="max-width:180px;flex:1 1 180px"><label>SPN rank</label><input id="pp-spn" class="input"></div>
-            <button id="pp-save-global" class="btn" type="button">Save global</button>
-            <span id="pp-msg" class="small"></span>
-          </div>
-
-          <div class="hr"></div>
-          <h3 style="margin:0 0 8px">Team settings (for this team)</h3>
-          <div class="row">
-            <div style="max-width:120px;flex:1 1 120px"><label>#</label><input id="pp-num" class="input" type="number"></div>
-            <div style="max-width:260px;flex:1 1 260px"><label>Positions</label><input id="pp-pos" class="input" placeholder="e.g., SS, OF"></div>
-            <button id="pp-save-team" class="btn" type="button">Save team fields</button>
+            <div id="gm-base-msg" class="small" style="margin-top:6px"></div>
+            <div class="hr"></div>
+            <button id="gm-save-play" class="btn" type="button">Save play</button>
+            <button id="gm-undo" class="btn outline" type="button">Undo last</button>
           </div>
         </div>
 
-        <div id="pp-spray">
-          <div class="row">
-            <select id="pp-scope-spray" class="input" style="max-width:260px"></select>
-            <span class="small">Pick a view to redraw the spray chart</span>
+        <div class="hr"></div>
+        <h3>Box score</h3>
+        <div id="gm-boxscore" class="scroll" style="max-height:40vh"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER PROFILE MODAL -->
+<div id="player-modal" role="dialog" aria-modal="true" aria-label="Player profile">
+  <div class="pm-card">
+    <div class="pm-head">
+      <div class="pm-title" id="pp-title">Player</div>
+      <div class="spacer"></div>
+      <button id="pp-close" class="btn outline small" type="button">Close</button>
+    </div>
+    <div class="pm-body">
+      <div class="pm-tabs">
+        <button id="pp-tab-info"  class="pm-tab active" type="button">Info</button>
+        <button id="pp-tab-spray" class="pm-tab" type="button">Spray</button>
+        <button id="pp-tab-stats" class="pm-tab" type="button">Stats</button>
+      </div>
+
+      <div id="pp-info" class="active">
+        <div class="row">
+          <img id="pp-photo" class="pm-photo" alt="player photo"/>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label>Change photo<input id="pp-photo-file" type="file" accept="image/*" class="input"></label>
           </div>
-          <div class="hr"></div>
-          <canvas id="pp-canvas" width="640" height="480" style="max-width:100%;border:1px solid #1f2937;border-radius:12px;background:#0b1326"></canvas>
         </div>
 
-        <div id="pp-stats">
-          <div class="row">
-            <select id="pp-scope-stats" class="input" style="max-width:260px"></select>
+        <div class="hr"></div>
+        <h3 style="margin:0 0 8px">Global profile</h3>
+        <div class="row">
+          <div style="max-width:180px;flex:1 1 180px"><label>First</label><input id="pp-first" class="input"></div>
+          <div style="max-width:180px;flex:1 1 180px"><label>Last</label><input id="pp-last" class="input"></div>
+          <div style="max-width:180px;flex:1 1 180px"><label>DOB</label><input id="pp-dob" class="input" type="date"></div>
+          <div style="max-width:120px;flex:1 1 120px"><label>Bats</label>
+            <select id="pp-bats" class="input"><option value="R">Right</option><option value="L">Left</option><option value="S">Switch</option></select>
           </div>
-          <div class="hr"></div>
-          <div class="scroll" style="max-height:50vh">
-            <table class="table" id="pp-stats-table"></table>
-          </div>
+        </div>
+        <div class="row">
+          <div style="max-width:180px;flex:1 1 180px"><label>NSA rank</label><input id="pp-nsa" class="input"></div>
+          <div style="max-width:180px;flex:1 1 180px"><label>SPN rank</label><input id="pp-spn" class="input"></div>
+          <button id="pp-save-global" class="btn" type="button">Save global</button>
+          <span id="pp-msg" class="small"></span>
+        </div>
+
+        <div class="hr"></div>
+        <h3 style="margin:0 0 8px">Team settings (for this team)</h3>
+        <div class="row">
+          <div style="max-width:120px;flex:1 1 120px"><label>#</label><input id="pp-num" class="input" type="number"></div>
+          <div style="max-width:260px;flex:1 1 260px"><label>Positions</label><input id="pp-pos" class="input" placeholder="e.g., SS, OF"></div>
+          <button id="pp-save-team" class="btn" type="button">Save team fields</button>
         </div>
       </div>
 
-      getFirestore, doc, getDoc, setDoc, onSnapshot, collection,
-      getDocs, query, where, orderBy, startAt, endAt, limit, updateDoc, arrayUnion
+      <div id="pp-spray">
+        <div class="row">
+          <select id="pp-scope-spray" class="input" style="max-width:260px"></select>
+          <span class="small">Pick a view to redraw the spray chart</span>
+        </div>
+        <div class="hr"></div>
+        <canvas id="pp-canvas" width="640" height="480" style="max-width:100%;border:1px solid #1f2937;border-radius:12px;background:#0b1326"></canvas>
+      </div>
+
+      <div id="pp-stats">
+        <div class="row">
+          <select id="pp-scope-stats" class="input" style="max-width:260px"></select>
+        </div>
+        <div class="hr"></div>
+        <div class="scroll" style="max-height:50vh">
+          <table class="table" id="pp-stats-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="debug">status: <span id="dbg-status">boot</span></div>
+
+<!-- Firebase (modular) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+  import { getAnalytics, isSupported as analyticsSupported } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-analytics.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot, collection,
+    getDocs, query, where, orderBy, startAt, endAt, limit, updateDoc, arrayUnion
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
   // === Firebase config ===
   const firebaseConfig = {
-      apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
-      authDomain: "statsdonkey-c276c.firebaseapp.com",
-      projectId: "statsdonkey-c276c",
-      storageBucket: "statsdonkey-c276c.firebasestorage.app",
-      messagingSenderId: "456849470787",
-      appId: "1:456849470787:web:0479b3dc8ca976296c2bf6",
-      measurementId: "G-T670NG1LYF"
+    apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
+    authDomain: "statsdonkey-c276c.firebaseapp.com",
+    projectId: "statsdonkey-c276c",
+    storageBucket: "statsdonkey-c276c.firebasestorage.app",
+    messagingSenderId: "456849470787",
+    appId: "1:456849470787:web:0479b3dc8ca976296c2bf6",
+    measurementId: "G-T670NG1LYF"
   };
 
   const app = initializeApp(firebaseConfig);
-  // No top-level await: probe analytics support with a promise chain
-  analyticsSupported().then(s => { if (s) getAnalytics(app); }).catch(() => {});
+  try { if (await analyticsSupported()) getAnalytics(app); } catch {}
   const db = getFirestore(app);
 
   // ---------- Utils ----------
@@ -370,36 +428,24 @@
 
   const z2 = n => String(n).padStart(2,'0');
   function normDate(s){
-      if(!s) return '';
-      s = String(s).trim();
-      if (s.includes('T')) return s.slice(0,10);
-      let m;
-      if ((m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/))) return `${m[1]}-${z2(m[2])}-${z2(m[3])}`;
-      if ((m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/))) return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
-      const d = new Date(s);
-      if (!isNaN(d)) return `${d.getFullYear()}-${z2(d.getMonth()+1)}-${z2(d.getDate())}`;
-      return s;
+    if(!s) return '';
+    s = String(s).trim();
+    if (s.includes('T')) return s.slice(0,10);
+    let m;
+    if ((m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/))) return `${m[1]}-${z2(m[2])}-${z2(m[3])}`;
+    if ((m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/))) return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
+    const d = new Date(s);
+    if (!isNaN(d)) return `${d.getFullYear()}-${z2(d.getMonth()+1)}-${z2(d.getDate())}`;
+    return s;
   }
   const asArray = (x)=> Array.isArray(x) ? x : (x ? Object.values(x) : []);
   const isHex64 = s => typeof s==='string' && /^[0-9a-f]{64}$/.test(s);
 
-  // Hardened sha256Hex: uses Web Crypto when available, safe fallback otherwise
   async function sha256Hex(str){
-      if (window.crypto?.subtle) {
-        const buf = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-        return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-      }
-      console.warn('Secure hashing unavailable: using weak fallback hash');
-      let h = 2166136261;
-      for (let i=0;i<str.length;i++){
-        h ^= str.charCodeAt(i);
-        h = (h + ((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24))) >>> 0;
-      }
-      const hex8 = ('00000000'+(h>>>0).toString(16)).slice(-8);
-      return (hex8+hex8+hex8+hex8+hex8+hex8+hex8+hex8).slice(0,64);
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-  const fileToDataURL = (file)=> new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=rej;
-  r.readAsDataURL(file); });
+  const fileToDataURL = (file)=> new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=rej; r.readAsDataURL(file); });
 
   // ---------- State ----------
   let teamDocId = null, unsubTeam = null, unsubGame = null;
@@ -412,1068 +458,1058 @@
 
   // ---------- Team realtime ----------
   function startTeamListener(){
-      stopTeamListener();
-      setDbg('listening');
-      unsubTeam = onSnapshot(doc(db, "teams", teamDocId), async snap=>{
-        if (!snap.exists()) return;
-        const raw = snap.data() || {};
-        const normRoster   = asArray(raw.roster);
-        const normSchedule = asArray(raw.schedule).map(g => ({...g, date: normDate(g.date)}));
-        data = { ...raw, roster: normRoster, schedule: normSchedule, opponents: raw.opponents || {} };
-        await preloadRosterPlayers();
-        hydrateUI();
-        setDbg(`synced • roster:${data.roster.length} • games:${data.schedule.length}`);
-        setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule?.length||0} | roster: ${data.roster?.length||0}`);
-      }, (err)=>{ console.error('onSnapshot error', err); setDbg('listen-error'); });
+    stopTeamListener();
+    setDbg('listening');
+    unsubTeam = onSnapshot(doc(db, "teams", teamDocId), async snap=>{
+      if (!snap.exists()) return;
+      const raw = snap.data() || {};
+      const normRoster   = asArray(raw.roster);
+      const normSchedule = asArray(raw.schedule).map(g => ({...g, date: normDate(g.date)}));
+      data = { ...raw, roster: normRoster, schedule: normSchedule, opponents: raw.opponents || {} };
+      await preloadRosterPlayers();
+      hydrateUI();
+      setDbg(`synced • roster:${data.roster.length} • games:${data.schedule.length}`);
+      setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule?.length||0} | roster: ${data.roster?.length||0}`);
+    }, (err)=>{ console.error('onSnapshot error', err); setDbg('listen-error'); });
   }
   function stopTeamListener(){ if (unsubTeam){ unsubTeam(); unsubTeam=null; } }
   async function saveTeamDoc(patch){ await setDoc(doc(db, "teams", teamDocId), patch?patch:data, { merge:true }); }
   async function ensureTeamSeed(team){
-      const ref = doc(db, "teams", teamDocId);
-      const snap = await getDoc(ref);
-      if (!snap.exists()) await setDoc(ref, { team:{ name: team, logo:'' }, roster:[], schedule:[], stats:{}, opponents:{} }, { merge:true });
-      else if (!snap.data().team?.name) await setDoc(ref, { team:{ name: team } }, { merge:true });
+    const ref = doc(db, "teams", teamDocId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) await setDoc(ref, { team:{ name: team, logo:'' }, roster:[], schedule:[], stats:{}, opponents:{} }, { merge:true });
+    else if (!snap.data().team?.name) await setDoc(ref, { team:{ name: team } }, { merge:true });
   }
   async function preloadRosterPlayers(){
-      const ids = Array.from(new Set((data.roster||[]).map(r=>r.playerId).filter(Boolean)));
-      await Promise.all(ids.map(async id=>{
-        if (playerCache.has(id)) return;
-        const snap = await getDoc(doc(db, "players", id));
-        if (snap.exists()) playerCache.set(id, snap.data());
-      }));
+    const ids = Array.from(new Set((data.roster||[]).map(r=>r.playerId).filter(Boolean)));
+    await Promise.all(ids.map(async id=>{
+      if (playerCache.has(id)) return;
+      const snap = await getDoc(doc(db, "players", id));
+      if (snap.exists()) playerCache.set(id, snap.data());
+    }));
   }
 
   // ---------- Player IDs ----------
   async function pidFromNameDob(first,last,dob){
-      return sha256Hex(`${first.toLowerCase()}|${last.toLowerCase()}|${dob}`);
+    return sha256Hex(`${first.toLowerCase()}|${last.toLowerCase()}|${dob}`);
   }
   async function pidFromNameOnly(first,last){
-      return sha256Hex(`${first.toLowerCase()} ${last.toLowerCase()}|anon-v1`);
+    return sha256Hex(`${first.toLowerCase()} ${last.toLowerCase()}|anon-v1`);
   }
 
   // ---------- Opponent pools ----------
   const oppKey = (name)=> String(name||'').trim().toLowerCase();
   async function addToOpponentPool(opponent, pid){
-      const key = oppKey(opponent);
-      await updateDoc(doc(db,"teams",teamDocId), { [`opponents.${key}`]: arrayUnion(pid) });
+    const key = oppKey(opponent);
+    await updateDoc(doc(db,"teams",teamDocId), { [`opponents.${key}`]: arrayUnion(pid) });
   }
   function getOpponentPoolIds(opponent){
-      const key=oppKey(opponent);
-      const ids = (data.opponents && data.opponents[key]) ? data.opponents[key] : [];
-      return Array.isArray(ids) ? ids : [];
+    const key=oppKey(opponent);
+    const ids = (data.opponents && data.opponents[key]) ? data.opponents[key] : [];
+    return Array.isArray(ids) ? ids : [];
   }
 
   // ---------- UI boot ----------
   (function initUI(){
-      $('#btn-login').onclick = async ()=>{
-        const team = $('#team-id').value.trim();
-        const pass = $('#team-pass').value;
-        const err = $('#login-error'); err.textContent='';
-        if (!team || !pass){ err.textContent='Enter team and password.'; return; }
-        try{
-          const hash = await sha256Hex(team.toLowerCase().trim()+'|'+pass);
-          teamDocId = hash;
-          await ensureTeamSeed(team);
-          route(true); startTeamListener();
-          setDbg('authless:ok'); setNav(`team: ${team} | games: 0 | roster: 0`);
-        }catch(e){ console.error(e); err.textContent='Login failed (config/rules).'; }
-      };
-      $('#btn-logout').onclick = ()=>{ stopTeamListener(); stopGameListener(); currentGameId=null; currentGame=null; route(false); setNav(''); };
+    $('#btn-login').onclick = async ()=>{
+      const team = $('#team-id').value.trim();
+      const pass = $('#team-pass').value;
+      const err = $('#login-error'); err.textContent='';
+      if (!team || !pass){ err.textContent='Enter team and password.'; return; }
+      try{
+        const hash = await sha256Hex(team.toLowerCase().trim()+'|'+pass);
+        teamDocId = hash;
+        await ensureTeamSeed(team);
+        route(true); startTeamListener();
+        setDbg('authless:ok'); setNav(`team: ${team} | games: 0 | roster: 0`);
+      }catch(e){ console.error(e); err.textContent='Login failed (config/rules).'; }
+    };
+    $('#btn-logout').onclick = ()=>{ stopTeamListener(); stopGameListener(); currentGameId=null; currentGame=null; route(false); setNav(''); };
 
-      $('#btn-add-player').onclick = onAddPlayer;
-      $('#btn-search').onclick = onSearchPlayers;
-      $('#btn-sch-add').onclick = onAddSchedule;
+    $('#btn-add-player').onclick = onAddPlayer;
+    $('#btn-search').onclick = onSearchPlayers;
+    $('#btn-sch-add').onclick = onAddSchedule;
 
-      $('#prev-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); };
-      $('#next-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); };
+    $('#prev-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); };
+    $('#next-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); };
 
-      // Game modal controls
-      $('#gm-tab-setup').onclick = ()=> setGameTab('setup');
-      $('#gm-tab-live').onclick  = ()=> setGameTab('live');
-      $('#gm-close').onclick     = closeGameModal;
+    // Game modal controls
+    $('#gm-tab-setup').onclick = ()=> setGameTab('setup');
+    $('#gm-tab-live').onclick  = ()=> setGameTab('live');
+    $('#gm-close').onclick     = closeGameModal;
 
-      $('#gm-sel-side').onchange = ()=>{ populateBatterSelect(); renderBasesAndRunners(true); };
-      $('#gm-btn-advance').onclick = advanceBatter;
-      $('#gm-save-play').onclick = savePlay;
-      $('#gm-undo').onclick = undoLast;
+    $('#gm-sel-side').onchange = ()=>{ populateBatterSelect(); renderBasesAndRunners(true); };
+    $('#gm-btn-advance').onclick = advanceBatter;
+    $('#gm-save-play').onclick = savePlay;
+    $('#gm-undo').onclick = undoLast;
 
-      $('#gm-diamond').addEventListener('click', (ev)=>{
-        if(!currentGameId) return;
-        const r = ev.currentTarget.getBoundingClientRect();
-        pending.x = ((ev.clientX - r.left) / r.width).toFixed(3);
-        pending.y = ((ev.clientY - r.top) / r.height).toFixed(3);
-        $('#md-result').value = '1B'; $('#md-hard').value='Medium';
-        pending.result='1B'; pending.hard='Medium';
-        pending.bases = { first:null, second:null, third:null }; pending.scored = [];
-        renderBasesAndRunners(true);
-        document.getElementById('modal').style.display='flex';
-      });
-      $$('.base').forEach(b=>{ b.onclick = ()=> placeSelectedRunner(b.dataset.base); });
+    $('#gm-diamond').addEventListener('click', (ev)=>{
+      if(!currentGameId) return;
+      const r = ev.currentTarget.getBoundingClientRect();
+      pending.x = ((ev.clientX - r.left) / r.width).toFixed(3);
+      pending.y = ((ev.clientY - r.top) / r.height).toFixed(3);
+      $('#md-result').value = '1B'; $('#md-hard').value='Medium';
+      pending.result='1B'; pending.hard='Medium';
+      pending.bases = { first:null, second:null, third:null }; pending.scored = [];
+      renderBasesAndRunners(true);
+      document.getElementById('modal').style.display='flex';
+    });
+    $$('.base').forEach(b=>{ b.onclick = ()=> placeSelectedRunner(b.dataset.base); });
 
-      // Opponent add flow
-      $('#gm-btn-opp-add').onclick = ()=> addOpponentPlayerFlow($('#gm-opp-add').value.trim(), $('#gm-opp-bats').value);
-      $('#gm-btn-opp-use-saved').onclick = ()=> addSavedOpponentToLineup();
-      $('#gm-opp-name').addEventListener('change', ()=> renderPregameBuilders());
-      $('#gm-save-pregame').onclick = savePregame;
+    // Opponent add flow
+    $('#gm-btn-opp-add').onclick = ()=> addOpponentPlayerFlow($('#gm-opp-add').value.trim(), $('#gm-opp-bats').value);
+    $('#gm-btn-opp-use-saved').onclick = ()=> addSavedOpponentToLineup();
+    $('#gm-opp-name').addEventListener('change', ()=> renderPregameBuilders());
+    $('#gm-save-pregame').onclick = savePregame;
 
-      // Team profile
-      $('#team-logo').addEventListener('change', async (e)=>{
-        const f = e.target.files?.[0]; if (!f) return;
-        const url = await fileToDataURL(f);
-        $('#logo-preview').src = url; $('#logo-preview').style.display='block';
-      });
-      $('#btn-save-team').onclick = saveTeamProfile;
+    // Team profile
+    $('#team-logo').addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0]; if (!f) return;
+      const url = await fileToDataURL(f);
+      $('#logo-preview').src = url; $('#logo-preview').style.display='block';
+    });
+    $('#btn-save-team').onclick = saveTeamProfile;
 
-      // Player modal
-      $('#pp-close').onclick = ()=> $('#player-modal').style.display='none';
-      $('#pp-tab-info').onclick  = ()=> setPlayerTab('info');
-      $('#pp-tab-spray').onclick = ()=> setPlayerTab('spray');
-      $('#pp-tab-stats').onclick = ()=> setPlayerTab('stats');
-      $('#pp-photo-file').addEventListener('change', onPlayerPhotoSelected);
-      $('#pp-save-global').onclick = savePlayerGlobal;
-      $('#pp-save-team').onclick   = savePlayerTeamFields;
-      $('#pp-scope-spray').onchange = ()=> refreshPlayerSpray();
-      $('#pp-scope-stats').onchange = ()=> refreshPlayerStats();
+    // Player modal
+    $('#pp-close').onclick = ()=> $('#player-modal').style.display='none';
+    $('#pp-tab-info').onclick  = ()=> setPlayerTab('info');
+    $('#pp-tab-spray').onclick = ()=> setPlayerTab('spray');
+    $('#pp-tab-stats').onclick = ()=> setPlayerTab('stats');
+    $('#pp-photo-file').addEventListener('change', onPlayerPhotoSelected);
+    $('#pp-save-global').onclick = savePlayerGlobal;
+    $('#pp-save-team').onclick   = savePlayerTeamFields;
+    $('#pp-scope-spray').onchange = ()=> refreshPlayerSpray();
+    $('#pp-scope-stats').onchange = ()=> refreshPlayerStats();
 
-      // Global delegated click: ANYTHING with data-pid opens the profile
-      document.addEventListener('click', (ev)=>{
-        const tgt = ev.target.closest('[data-pid]');
-        if (!tgt) return;
-        const pid = tgt.getAttribute('data-pid');
-        if (!pid) return;
-        ev.preventDefault();
-        openPlayerProfile(pid);
-      });
+    // Global delegated click: ANYTHING with data-pid opens the profile
+    document.addEventListener('click', (ev)=>{
+      const tgt = ev.target.closest('[data-pid]');
+      if (!tgt) return;
+      const pid = tgt.getAttribute('data-pid');
+      if (!pid) return;
+      ev.preventDefault();
+      openPlayerProfile(pid);
+    });
 
-      setDbg('ready');
+    setDbg('ready');
   })();
 
   // ---------- Routing ----------
   function route(on){
-      if(!on){
-        show($('#view-login'));
-        ['sec-team','sec-roster','sec-schedule','sec-calendar','sec-stats'].forEach(id=>hide($('#'+id)));
-        $('#btn-logout').classList.add('hidden'); return;
-      }
-      hide($('#view-login'));
-      ['sec-team','sec-roster','sec-schedule','sec-calendar','sec-stats'].forEach(id=>show($('#'+id)));
-      $('#btn-logout').classList.remove('hidden');
-      hydrateUI();
+    if(!on){
+      show($('#view-login'));
+      ['sec-team','sec-roster','sec-schedule','sec-calendar','sec-stats'].forEach(id=>hide($('#'+id)));
+      $('#btn-logout').classList.add('hidden'); return;
+    }
+    hide($('#view-login'));
+    ['sec-team','sec-roster','sec-schedule','sec-calendar','sec-stats'].forEach(id=>show($('#'+id)));
+    $('#btn-logout').classList.remove('hidden');
+    hydrateUI();
   }
   function hydrateUI(){
-      $('#team-name').value = data.team?.name || '';
-      const im=$('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
-      renderRoster(); renderStats(); renderCalendar(); renderScheduleList();
+    $('#team-name').value = data.team?.name || '';
+    const im=$('#logo-preview'); im.src = data.team?.logo || ''; im.style.display = data.team?.logo ? 'block':'none';
+    renderRoster(); renderStats(); renderCalendar(); renderScheduleList();
   }
 
   // ---------- Team profile ----------
   async function saveTeamProfile(){
-      const name = $('#team-name').value.trim();
-      const file = $('#team-logo').files?.[0];
-      let logo = data.team?.logo || '';
-      if (file) logo = await fileToDataURL(file);
-      await saveTeamDoc({ team: { ...(data.team||{}), name, logo } });
+    const name = $('#team-name').value.trim();
+    const file = $('#team-logo').files?.[0];
+    let logo = data.team?.logo || '';
+    if (file) logo = await fileToDataURL(file);
+    await saveTeamDoc({ team: { ...(data.team||{}), name, logo } });
   }
 
   // ---------- Roster ----------
   async function onAddPlayer(){
-      $('#pf-err').textContent='';
-      const first=$('#pf-first').value.trim(), last=$('#pf-last').value.trim();
-      const dob=$('#pf-dob').value; const positions=$('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
-      const number=$('#pf-num').value?Number($('#pf-num').value):undefined;
-      const nsa=$('#pf-nsa').value.trim(), spn=$('#pf-spn').value.trim();
-      const bats=$('#pf-bats').value || 'R';
-      if(!first || !last || !dob){ $('#pf-err').textContent='First, Last, and DOB are required.'; return; }
-      try{
-        const pid = await pidFromNameDob(first,last,dob);
-        if ((data.roster||[]).some(r=>r.playerId===pid)){ $('#pf-err').textContent='Player already on this roster.'; return; }
-        const pRef = doc(db,"players",pid); const pSnap=await getDoc(pRef);
-        if (!pSnap.exists()){
-          await setDoc(pRef,{
-            first,last,dob,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,bats,
-            ranks:{nsa,spn}, photo:'',
-            stats:{PA:0,AB:0,H:0,"1B":0,"2B":0,"3B":0,HR:0,BB:0,K:0,AVG:"0.000",OBP:"0.000",SLG:"0.000",OPS:"0.000"},
-            createdAt:new Date().toISOString()
-          },{merge:true});
-        }else{
-          const cur=pSnap.data()||{};
-          const ranks={...(cur.ranks||{})}; if(nsa)ranks.nsa=nsa; if(spn)ranks.spn=spn;
-          await setDoc(pRef,{ranks,bats:bats||cur.bats||'R'},{merge:true});
-        }
-        playerCache.set(pid,(await getDoc(pRef)).data());
-        data.roster = [...(data.roster||[]), { playerId:pid, first,last,dob, number, positions, ranks:{nsa,spn}, bats }];
-        renderRoster();
-        await saveTeamDoc({ roster: data.roster });
-        ['pf-first','pf-last','pf-dob','pf-pos','pf-num','pf-nsa','pf-spn'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; });
-        $('#pf-bats').value='R';
-      }catch(e){ console.error(e); $('#pf-err').textContent='Add failed.'; }
+    $('#pf-err').textContent='';
+    const first=$('#pf-first').value.trim(), last=$('#pf-last').value.trim();
+    const dob=$('#pf-dob').value; const positions=$('#pf-pos').value.split(/\s*,\s*/).filter(Boolean);
+    const number=$('#pf-num').value?Number($('#pf-num').value):undefined;
+    const nsa=$('#pf-nsa').value.trim(), spn=$('#pf-spn').value.trim();
+    const bats=$('#pf-bats').value || 'R';
+    if(!first || !last || !dob){ $('#pf-err').textContent='First, Last, and DOB are required.'; return; }
+    try{
+      const pid = await pidFromNameDob(first,last,dob);
+      if ((data.roster||[]).some(r=>r.playerId===pid)){ $('#pf-err').textContent='Player already on this roster.'; return; }
+      const pRef = doc(db,"players",pid); const pSnap=await getDoc(pRef);
+      if (!pSnap.exists()){
+        await setDoc(pRef,{
+          first,last,dob,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,bats,
+          ranks:{nsa,spn}, photo:'',
+          stats:{PA:0,AB:0,H:0,"1B":0,"2B":0,"3B":0,HR:0,BB:0,K:0,AVG:"0.000",OBP:"0.000",SLG:"0.000",OPS:"0.000"},
+          createdAt:new Date().toISOString()
+        },{merge:true});
+      }else{
+        const cur=pSnap.data()||{};
+        const ranks={...(cur.ranks||{})}; if(nsa)ranks.nsa=nsa; if(spn)ranks.spn=spn;
+        await setDoc(pRef,{ranks,bats:bats||cur.bats||'R'},{merge:true});
+      }
+      playerCache.set(pid,(await getDoc(pRef)).data());
+      data.roster = [...(data.roster||[]), { playerId:pid, first,last,dob, number, positions, ranks:{nsa,spn}, bats }];
+      renderRoster();
+      await saveTeamDoc({ roster: data.roster });
+      ['pf-first','pf-last','pf-dob','pf-pos','pf-num','pf-nsa','pf-spn'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; });
+      $('#pf-bats').value='R';
+    }catch(e){ console.error(e); $('#pf-err').textContent='Add failed.'; }
   }
 
   async function removeFromRoster(pid){
-      if(!pid) return;
-      if(!confirm('Remove this player from the team roster? This does not delete their global profile.')) return;
-      data.roster = (data.roster||[]).filter(r=>r.playerId!==pid);
-      renderRoster();
-      await saveTeamDoc({ roster: data.roster });
+    if(!pid) return;
+    if(!confirm('Remove this player from the team roster? This does not delete their global profile.')) return;
+    data.roster = (data.roster||[]).filter(r=>r.playerId!==pid);
+    renderRoster();
+    await saveTeamDoc({ roster: data.roster });
   }
 
   async function onSearchPlayers(){
-      const term=$('#srch-name').value.trim().toLowerCase(); const dob=$('#srch-dob').value; const out=$('#srch-results'); out.innerHTML='';
-      if(!term){ out.textContent='Enter a name to search.'; return; }
-      try{
-        const qy=query(collection(db,"players"), orderBy('nameNorm'), startAt(term), endAt(term+'\uf8ff'), limit(25));
-        const snap=await getDocs(qy); let list=snap.docs.map(d=>({id:d.id,...d.data()})); if(dob) list=list.filter(r=>(r.dob||'')===dob);
-        if(!list.length){ out.textContent='No matches.'; return; }
-        const numDefault=$('#srch-num').value?Number($('#srch-num').value):undefined;
-        const posDefault=$('#srch-pos').value.split(/\s*,\s*/).filter(Boolean);
-        const ul=document.createElement('ul'); ul.style.listStyle='none'; ul.style.padding='0'; ul.style.margin='6px 0';
-        list.forEach(r=>{
-          const li=document.createElement('li'); li.style.marginBottom='6px';
-          const already=(data.roster||[]).some(x=>x.playerId===r.id);
-          const nm = `${r.first||''} ${r.last||''}`.trim();
-          li.innerHTML=`
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <div><span class="plink" data-pid="${r.id}">${nm}</span> — DOB: ${r.dob||'—'} • Bats: ${r.bats||'R'}</div>
-              <div class="small">NSA: ${r.ranks?.nsa||'-'} | SPN: ${r.ranks?.spn||'-'}</div>
-              ${already?'<span class="small" style="color:#34d399">Already on roster</span>':'<button class="btn small" data-add="'+r.id+'">Add to team</
-  button>'}
-            </div>`;
-          ul.appendChild(li);
-        });
-        out.appendChild(ul);
-        out.querySelectorAll('button[data-add]').forEach(btn=>{
-          btn.onclick=async()=>{
-            const pid=btn.getAttribute('data-add'); if((data.roster||[]).some(x=>x.playerId===pid)) return;
-            const pSnap=await getDoc(doc(db,"players",pid)); if(!pSnap.exists()) return;
-            const p=pSnap.data();
-            data.roster=[...(data.roster||[]), { playerId:pid, first:p.first||'', last:p.last||'', dob:p.dob||'', number:numDefault, positions:posDefault,
-  ranks:{nsa:p.ranks?.nsa||'', spn:p.ranks?.spn||''}, bats:p.bats||'R' }];
-            renderRoster();
-            await saveTeamDoc({ roster: data.roster });
-            btn.replaceWith((()=>{const t=document.createElement('span'); t.className='small'; t.style.color='#34d399'; t.textContent='Added'; return t; })
-  ());
-          };
-        });
-      }catch(e){ console.error(e); out.textContent='Search failed.'; }
+    const term=$('#srch-name').value.trim().toLowerCase(); const dob=$('#srch-dob').value; const out=$('#srch-results'); out.innerHTML='';
+    if(!term){ out.textContent='Enter a name to search.'; return; }
+    try{
+      const qy=query(collection(db,"players"), orderBy('nameNorm'), startAt(term), endAt(term+'\uf8ff'), limit(25));
+      const snap=await getDocs(qy); let list=snap.docs.map(d=>({id:d.id,...d.data()})); if(dob) list=list.filter(r=>(r.dob||'')===dob);
+      if(!list.length){ out.textContent='No matches.'; return; }
+      const numDefault=$('#srch-num').value?Number($('#srch-num').value):undefined;
+      const posDefault=$('#srch-pos').value.split(/\s*,\s*/).filter(Boolean);
+      const ul=document.createElement('ul'); ul.style.listStyle='none'; ul.style.padding='0'; ul.style.margin='6px 0';
+      list.forEach(r=>{
+        const li=document.createElement('li'); li.style.marginBottom='6px';
+        const already=(data.roster||[]).some(x=>x.playerId===r.id);
+        const nm = `${r.first||''} ${r.last||''}`.trim();
+        li.innerHTML=`
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div><span class="plink" data-pid="${r.id}">${nm}</span> — DOB: ${r.dob||'—'} • Bats: ${r.bats||'R'}</div>
+            <div class="small">NSA: ${r.ranks?.nsa||'-'} | SPN: ${r.ranks?.spn||'-'}</div>
+            ${already?'<span class="small" style="color:#34d399">Already on roster</span>':'<button class="btn small" data-add="'+r.id+'">Add to team</button>'}
+          </div>`;
+        ul.appendChild(li);
+      });
+      out.appendChild(ul);
+      out.querySelectorAll('button[data-add]').forEach(btn=>{
+        btn.onclick=async()=>{
+          const pid=btn.getAttribute('data-add'); if((data.roster||[]).some(x=>x.playerId===pid)) return;
+          const pSnap=await getDoc(doc(db,"players",pid)); if(!pSnap.exists()) return;
+          const p=pSnap.data();
+          data.roster=[...(data.roster||[]), { playerId:pid, first:p.first||'', last:p.last||'', dob:p.dob||'', number:numDefault, positions:posDefault, ranks:{nsa:p.ranks?.nsa||'', spn:p.ranks?.spn||''}, bats:p.bats||'R' }];
+          renderRoster();
+          await saveTeamDoc({ roster: data.roster });
+          btn.replaceWith((()=>{const t=document.createElement('span'); t.className='small'; t.style.color='#34d399'; t.textContent='Added'; return t; })());
+        };
+      });
+    }catch(e){ console.error(e); out.textContent='Search failed.'; }
   }
 
   function renderRoster(){
-      const rows=(data.roster||[]).map(p=>`<tr>
-        <td><span class="plink" data-pid="${p.playerId}">${p.first} ${p.last}</span></td>
-        <td>${p.number||''}</td>
-        <td>${(p.positions||[]).join(', ')}</td>
-        <td>${p.dob||''}</td>
-        <td>${p.bats||'R'}</td>
-        <td>${p.ranks?.nsa||''}</td>
-        <td>${p.ranks?.spn||''}</td>
-        <td class="small">${p.playerId}</td>
-        <td><button class="btn outline small" data-del-pid="${p.playerId}">Remove</button></td>
-      </tr>`).join('');
-      $('#roster-count').textContent = data.roster?.length ? (data.roster.length + ' players') : 'No players';
-      $('#tbl-roster').innerHTML='<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>Bats</th><th>NSA</th><th>SPN</th><th>ID</
-  th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody>';
-      $$('#tbl-roster button[data-del-pid]').forEach(btn=>{
-        btn.onclick = ()=> removeFromRoster(btn.getAttribute('data-del-pid'));
-      });
+    const rows=(data.roster||[]).map(p=>`<tr>
+      <td><span class="plink" data-pid="${p.playerId}">${p.first} ${p.last}</span></td>
+      <td>${p.number||''}</td>
+      <td>${(p.positions||[]).join(', ')}</td>
+      <td>${p.dob||''}</td>
+      <td>${p.bats||'R'}</td>
+      <td>${p.ranks?.nsa||''}</td>
+      <td>${p.ranks?.spn||''}</td>
+      <td class="small">${p.playerId}</td>
+      <td><button class="btn outline small" data-del-pid="${p.playerId}">Remove</button></td>
+    </tr>`).join('');
+    $('#roster-count').textContent = data.roster?.length ? (data.roster.length + ' players') : 'No players';
+    $('#tbl-roster').innerHTML='<thead><tr><th>Player</th><th>#</th><th>Positions</th><th>DOB</th><th>Bats</th><th>NSA</th><th>SPN</th><th>ID</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody>';
+    $$('#tbl-roster button[data-del-pid]').forEach(btn=>{
+      btn.onclick = ()=> removeFromRoster(btn.getAttribute('data-del-pid'));
+    });
   }
 
   // ---------- Stats ----------
   function renderStats(){
-      const headers = ['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
-      const body = (data.roster||[]).map(r=>{
-        const p = playerCache.get(r.playerId) || {};
-        const s = p.stats || {};
-        const nm = `${r.first||''} ${r.last||''}`.trim();
-        return `<tr>
-          <td><span class="plink" data-pid="${r.playerId}">${nm}</span> <span class="small" style="opacity:.8">(${p.bats||r.bats||'R'})</span></td>
-          <td>${s.PA||0}</td><td>${s.AB||0}</td><td>${s.H||0}</td>
-          <td>${s['1B']||0}</td><td>${s['2B']||0}</td><td>${s['3B']||0}</td>
-          <td>${s.HR||0}</td><td>${s.BB||0}</td><td>${s.K||0}</td>
-          <td>${s.AVG||'0.000'}</td><td>${s.OBP||'0.000'}</td><td>${s.SLG||'0.000'}</td><td>${s.OPS||'0.000'}</td>
-        </tr>`;
-      }).join('');
-      $('#tbl-stats').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody>`;
+    const headers = ['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
+    const body = (data.roster||[]).map(r=>{
+      const p = playerCache.get(r.playerId) || {};
+      const s = p.stats || {};
+      const nm = `${r.first||''} ${r.last||''}`.trim();
+      return `<tr>
+        <td><span class="plink" data-pid="${r.playerId}">${nm}</span> <span class="small" style="opacity:.8">(${p.bats||r.bats||'R'})</span></td>
+        <td>${s.PA||0}</td><td>${s.AB||0}</td><td>${s.H||0}</td>
+        <td>${s['1B']||0}</td><td>${s['2B']||0}</td><td>${s['3B']||0}</td>
+        <td>${s.HR||0}</td><td>${s.BB||0}</td><td>${s.K||0}</td>
+        <td>${s.AVG||'0.000'}</td><td>${s.OBP||'0.000'}</td><td>${s.SLG||'0.000'}</td><td>${s.OPS||'0.000'}</td>
+      </tr>`;
+    }).join('');
+    $('#tbl-stats').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody>`;
   }
 
   // ---------- Scheduler & Calendar ----------
   async function onAddSchedule(){
-      $('#sch-err').textContent='';
-      const date = normDate($('#sch-date').value);
-      const time = $('#sch-time').value;
-      const field = $('#sch-field').value.trim();
-      const comp  = $('#sch-comp').value.trim();
-      const ha    = $('#sch-ha').value;
-      const opp   = $('#sch-opp').value.trim();
-      const our   = (data.team?.name || $('#team-name').value || '').trim();
+    $('#sch-err').textContent='';
+    const date = normDate($('#sch-date').value);
+    const time = $('#sch-time').value;
+    const field = $('#sch-field').value.trim();
+    const comp  = $('#sch-comp').value.trim();
+    const ha    = $('#sch-ha').value;
+    const opp   = $('#sch-opp').value.trim();
+    const our   = (data.team?.name || $('#team-name').value || '').trim();
 
-      if(!date || !opp || !our){
-        $('#sch-err').textContent = 'Date + Opponent + Team required. Set your Team name in the Team profile.';
-        return;
-      }
+    if(!date || !opp || !our){
+      $('#sch-err').textContent = 'Date + Opponent + Team required. Set your Team name in the Team profile.';
+      return;
+    }
 
-      const home = (ha === 'home') ? our : opp;
-      const away = (ha === 'home') ? opp : our;
+    const home = (ha === 'home') ? our : opp;
+    const away = (ha === 'home') ? opp : our;
 
-      const id = (window.crypto?.randomUUID?.()) || (Date.now().toString(36) + Math.random().toString(36).slice(2,8));
-      const newGame = { id, date, time, field, comp, home, away };
+    const id=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
+    const newGame = { id, date, time, field, comp, home, away };
 
-      data.schedule = [...(data.schedule||[]), newGame];
+    data.schedule = [...(data.schedule||[]), newGame];
+    renderScheduleList(); renderCalendar();
+
+    try{
+      await saveTeamDoc({ schedule: data.schedule });
+      setNav(`team: ${data.team?.name||our} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
+    }catch(e){
+      console.error(e);
+      $('#sch-err').textContent='Save failed — check Firestore rules/config.';
+      data.schedule = data.schedule.filter(g=>g.id!==id);
       renderScheduleList(); renderCalendar();
+    }
 
-      try{
-        await saveTeamDoc({ schedule: data.schedule });
-        setNav(`team: ${data.team?.name||our} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
-      }catch(e){
-        console.error(e);
-        $('#sch-err').textContent='Save failed — check Firestore rules/config.';
-        data.schedule = data.schedule.filter(g=>g.id!==id);
-        renderScheduleList(); renderCalendar();
-      }
-
-      $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value=''; $('#sch-opp').value='';
+    $('#sch-time').value=''; $('#sch-field').value=''; $('#sch-comp').value=''; $('#sch-opp').value='';
   }
 
   function getScheduleArray(){ return Array.isArray(data.schedule) ? data.schedule : asArray(data.schedule); }
   function sortByDateTime(a,b){
-      const da = (a?.date? a.date : ''), db = (b?.date? b.date : '');
-      if (da !== db) return da < db ? -1 : 1;
-      const ta = (a?.time||''), tb=(b?.time||'');
-      return ta < tb ? -1 : (ta > tb ? 1 : 0);
+    const da = (a?.date? a.date : ''), db = (b?.date? b.date : '');
+    if (da !== db) return da < db ? -1 : 1;
+    const ta = (a?.time||''), tb=(b?.time||'');
+    return ta < tb ? -1 : (ta > tb ? 1 : 0);
   }
 
   function renderScheduleList(){
-      const headers=['Date','Time','Home','Away','Field','Comp','Actions'];
-      const sorted = [...getScheduleArray()].map(g=>({...g, date:normDate(g.date)})).sort(sortByDateTime);
-      const body = sorted.map(g=>`<tr>
-        <td>${g.date||''}</td><td>${g.time||''}</td><td>${g.home||''}</td><td>${g.away||''}</td><td>${g.field||''}</td><td>${g.comp||''}</td>
-        <td><button class="btn outline small" data-del-sid="${g.id}">Delete</button></td>
-      </tr>`).join('');
-      $('#tbl-schedule').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody>`;
-      $$('#tbl-schedule button[data-del-sid]').forEach(btn=>{
-        btn.onclick = ()=> deleteSchedule(btn.getAttribute('data-del-sid'));
-      });
+    const headers=['Date','Time','Home','Away','Field','Comp','Actions'];
+    const sorted = [...getScheduleArray()].map(g=>({...g, date:normDate(g.date)})).sort(sortByDateTime);
+    const body = sorted.map(g=>`<tr>
+      <td>${g.date||''}</td><td>${g.time||''}</td><td>${g.home||''}</td><td>${g.away||''}</td><td>${g.field||''}</td><td>${g.comp||''}</td>
+      <td><button class="btn outline small" data-del-sid="${g.id}">Delete</button></td>
+    </tr>`).join('');
+    $('#tbl-schedule').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody>`;
+    $$('#tbl-schedule button[data-del-sid]').forEach(btn=>{
+      btn.onclick = ()=> deleteSchedule(btn.getAttribute('data-del-sid'));
+    });
   }
 
   async function deleteSchedule(sid){
-      if(!sid) return;
-      if(!confirm('Delete this game from the schedule?')) return;
-      const before = data.schedule;
-      data.schedule = getScheduleArray().filter(g=>g.id!==sid);
+    if(!sid) return;
+    if(!confirm('Delete this game from the schedule?')) return;
+    const before = data.schedule;
+    data.schedule = getScheduleArray().filter(g=>g.id!==sid);
+    renderCalendar(); renderScheduleList();
+    try{
+      await saveTeamDoc({ schedule: data.schedule });
+      setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
+    }catch(e){
+      console.error(e);
+      data.schedule = before;
       renderCalendar(); renderScheduleList();
-      try{
-        await saveTeamDoc({ schedule: data.schedule });
-        setNav(`team: ${data.team?.name||'—'} | games: ${data.schedule.length} | roster: ${data.roster?.length||0}`);
-      }catch(e){
-        console.error(e);
-        data.schedule = before;
-        renderCalendar(); renderScheduleList();
-        alert('Delete failed — check Firestore rules/config.');
-      }
+      alert('Delete failed — check Firestore rules/config.');
+    }
   }
 
   function renderCalendar(){
-      try{
-        const sched = getScheduleArray().map(g=>({...g, date:normDate(g.date)}));
-        const m0=new Date(calCurrent.getFullYear(),calCurrent.getMonth(),1);
-        const m1=new Date(calCurrent.getFullYear(),calCurrent.getMonth()+1,0);
-        $('#cal-title').textContent=m0.toLocaleString(undefined,{month:'long',year:'numeric'});
-        const first=m0.getDay(),days=m1.getDate(); const grid=$('#cal-grid'); grid.innerHTML='';
-        ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{const h=document.createElement('div'); h.className='cell head'; h.textContent=d;
-  grid.appendChild(h);});
-        for(let i=0;i<first;i++){const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b);}
-        let any=false;
-        for(let day=1; day<=days; day++){
-          const cell=document.createElement('div'); cell.className='cell';
-          const ds=`${m0.getFullYear()}-${z2(m0.getMonth()+1)}-${z2(day)}`;
-          const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
-          const ul=document.createElement('ul'); ul.className='events';
-          sched.filter(g=>String(g.date||'')===ds).forEach(g=>{
-            any=true;
-            const li=document.createElement('li');
-            li.textContent = `${g.time||''} ${g.home||'Home'} vs ${g.away||'Away'}${g.field?(' @ '+g.field):''}${g.comp?(' — '+g.comp):''}`.trim();
-            li.onclick = ()=> openGameModalFromSchedule(g, ds);
-            ul.appendChild(li);
-          });
-          cell.appendChild(ul); grid.appendChild(cell);
-        }
-        if(!any){
-          const hint=document.createElement('div'); hint.className='empty-hint'; hint.textContent='No games scheduled this month';
-          grid.appendChild(hint);
-        }
-      }catch(e){
-        console.error('renderCalendar error', e);
-        $('#cal-grid').innerHTML = `<div class="empty-hint">Calendar error — open console</div>`;
+    try{
+      const sched = getScheduleArray().map(g=>({...g, date:normDate(g.date)}));
+      const m0=new Date(calCurrent.getFullYear(),calCurrent.getMonth(),1);
+      const m1=new Date(calCurrent.getFullYear(),calCurrent.getMonth()+1,0);
+      $('#cal-title').textContent=m0.toLocaleString(undefined,{month:'long',year:'numeric'});
+      const first=m0.getDay(),days=m1.getDate(); const grid=$('#cal-grid'); grid.innerHTML='';
+      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{const h=document.createElement('div'); h.className='cell head'; h.textContent=d; grid.appendChild(h);});
+      for(let i=0;i<first;i++){const b=document.createElement('div'); b.className='cell blank'; grid.appendChild(b);}
+      let any=false;
+      for(let day=1; day<=days; day++){
+        const cell=document.createElement('div'); cell.className='cell';
+        const ds=`${m0.getFullYear()}-${z2(m0.getMonth()+1)}-${z2(day)}`;
+        const head=document.createElement('div'); head.className='date'; head.textContent=day; cell.appendChild(head);
+        const ul=document.createElement('ul'); ul.className='events';
+        sched.filter(g=>String(g.date||'')===ds).forEach(g=>{
+          any=true;
+          const li=document.createElement('li');
+          li.textContent = `${g.time||''} ${g.home||'Home'} vs ${g.away||'Away'}${g.field?(' @ '+g.field):''}${g.comp?(' — '+g.comp):''}`.trim();
+          li.onclick = ()=> openGameModalFromSchedule(g, ds);
+          ul.appendChild(li);
+        });
+        cell.appendChild(ul); grid.appendChild(cell);
       }
+      if(!any){
+        const hint=document.createElement('div'); hint.className='empty-hint'; hint.textContent='No games scheduled this month';
+        grid.appendChild(hint);
+      }
+    }catch(e){
+      console.error('renderCalendar error', e);
+      $('#cal-grid').innerHTML = `<div class="empty-hint">Calendar error — open console</div>`;
+    }
   }
 
   // ---------- Game modal ----------
   async function openGameModalFromSchedule(g, dateStr){
-      const our = data.team?.name?.trim() || '';
-      let isHome = true, opponent = g.away || 'Opponent';
-      if (g.home?.trim() === our){ isHome=true; opponent = g.away||'Opponent'; }
-      else if (g.away?.trim() === our){ isHome=false; opponent = g.home||'Opponent'; }
+    const our = data.team?.name?.trim() || '';
+    let isHome = true, opponent = g.away || 'Opponent';
+    if (g.home?.trim() === our){ isHome=true; opponent = g.away||'Opponent'; }
+    else if (g.away?.trim() === our){ isHome=false; opponent = g.home||'Opponent'; }
 
-      const sub = collection(doc(db,"teams",teamDocId),"games");
-      const qy = query(sub, where('meta.date','==', dateStr), limit(10));
-      const snap = await getDocs(qy);
-      let found = null; snap.forEach(d => { const x=d.data(); if ((x.meta?.opponent||'')===opponent) found = { id:d.id, data:x }; });
+    const sub = collection(doc(db,"teams",teamDocId),"games");
+    const qy = query(sub, where('meta.date','==', dateStr), limit(10));
+    const snap = await getDocs(qy);
+    let found = null; snap.forEach(d => { const x=d.data(); if ((x.meta?.opponent||'')===opponent) found = { id:d.id, data:x }; });
 
-      if (found){
-        const metaPatch = {};
-        if (g.comp && !found.data.meta?.comp) metaPatch['meta.comp']=g.comp;
-        if (g.field && !found.data.meta?.field) metaPatch['meta.field']=g.field;
-        if (g.time && !found.data.meta?.time) metaPatch['meta.time']=g.time;
-        if (Object.keys(metaPatch).length) await updateDoc(doc(db,"teams",teamDocId,"games",found.id), metaPatch);
-        startGameListener(found.id);
-      } else {
-        const id = Date.now().toString(36);
-        const def = baseDefense();
-        const seed = {
-          meta:{ date:dateStr, opponent, isHome, status:'pregame', comp:g.comp||'', field:g.field||'', time:g.time||'', createdAt:new
-  Date().toISOString() },
-          home:{ lineup:(data.roster||[]).slice(0,10).map(r=>r.playerId), defense:{...def}, batterIndex:0, name:data.team?.name||'Home' },
-          away:{ roster:[], lineup:[], defense:{...def}, batterIndex:0, name:opponent },
-          inning:{ half:'top', number:1, outs:0 },
-          bases:{ first:null, second:null, third:null },
-          score:{ home:0, away:0, byInning:{} },
-          plays:[]
-        };
-        await setDoc(doc(db,"teams",teamDocId,"games",id), seed);
-        startGameListener(id);
-      }
-      $('#game-modal').style.display='flex';
-      setGameTab('setup');
+    if (found){
+      const metaPatch = {};
+      if (g.comp && !found.data.meta?.comp) metaPatch['meta.comp']=g.comp;
+      if (g.field && !found.data.meta?.field) metaPatch['meta.field']=g.field;
+      if (g.time && !found.data.meta?.time) metaPatch['meta.time']=g.time;
+      if (Object.keys(metaPatch).length) await updateDoc(doc(db,"teams",teamDocId,"games",found.id), metaPatch);
+      startGameListener(found.id);
+    } else {
+      const id = Date.now().toString(36);
+      const def = baseDefense();
+      const seed = {
+        meta:{ date:dateStr, opponent, isHome, status:'pregame', comp:g.comp||'', field:g.field||'', time:g.time||'', createdAt:new Date().toISOString() },
+        home:{ lineup:(data.roster||[]).slice(0,10).map(r=>r.playerId), defense:{...def}, batterIndex:0, name:data.team?.name||'Home' },
+        away:{ roster:[], lineup:[], defense:{...def}, batterIndex:0, name:opponent },
+        inning:{ half:'top', number:1, outs:0 },
+        bases:{ first:null, second:null, third:null },
+        score:{ home:0, away:0, byInning:{} },
+        plays:[]
+      };
+      await setDoc(doc(db,"teams",teamDocId,"games",id), seed);
+      startGameListener(id);
+    }
+    $('#game-modal').style.display='flex';
+    setGameTab('setup');
   }
 
   function closeGameModal(){
-      $('#game-modal').style.display='none';
-      stopGameListener();
-      currentGameId=null; currentGame=null;
+    $('#game-modal').style.display='none';
+    stopGameListener();
+    currentGameId=null; currentGame=null;
   }
   function stopGameListener(){ if (unsubGame){ unsubGame(); unsubGame=null; } }
   function startGameListener(gameId){
-      stopGameListener();
-      const ref=doc(db,"teams",teamDocId,"games",gameId);
-      unsubGame=onSnapshot(ref, async snap=>{
-        if(!snap.exists()) return;
-        currentGame=snap.data(); currentGameId=gameId;
-        if (!currentGame.bases) currentGame.bases={ first:null,second:null,third:null };
+    stopGameListener();
+    const ref=doc(db,"teams",teamDocId,"games",gameId);
+    unsubGame=onSnapshot(ref, async snap=>{
+      if(!snap.exists()) return;
+      currentGame=snap.data(); currentGameId=gameId;
+      if (!currentGame.bases) currentGame.bases={ first:null,second:null,third:null };
 
-        // Migrate old away roster strings -> playerIds
-        if (Array.isArray(currentGame.away?.roster) && currentGame.away.roster.some(x=>typeof x==='string' && !isHex64(x))){
-          const names = currentGame.away.roster;
-          const ids = [];
-          for (const nm of names){
-            const {first,last}=splitFullname(nm);
-            const pid = await ensureAnonPlayer(first,last,'R');
-            ids.push(pid);
-          }
-          await setDoc(ref, { away:{ ...(currentGame.away||{}), roster: ids } }, {merge:true});
-          return;
+      // Migrate old away roster strings -> playerIds
+      if (Array.isArray(currentGame.away?.roster) && currentGame.away.roster.some(x=>typeof x==='string' && !isHex64(x))){
+        const names = currentGame.away.roster;
+        const ids = [];
+        for (const nm of names){
+          const {first,last}=splitFullname(nm);
+          const pid = await ensureAnonPlayer(first,last,'R');
+          ids.push(pid);
         }
+        await setDoc(ref, { away:{ ...(currentGame.away||{}), roster: ids } }, {merge:true});
+        return;
+      }
 
-        updateGameHeader();
-        await renderPregameBuilders();
-        updateLiveViews();
-      });
+      updateGameHeader();
+      await renderPregameBuilders();
+      updateLiveViews();
+    });
   }
 
   const BASE_POSITIONS=['P','C','1B','2B','3B','SS','LF','LCF','RCF','RF'];
   function positionsForSide(side){
-      const ln = (currentGame?.[side]?.lineup||[]).length || 10;
-      const extras = Math.max(0, ln - 10);
-      const arr = [...BASE_POSITIONS]; for(let i=1;i<=extras;i++) arr.push(`EP${i}`); return arr;
+    const ln = (currentGame?.[side]?.lineup||[]).length || 10;
+    const extras = Math.max(0, ln - 10);
+    const arr = [...BASE_POSITIONS]; for(let i=1;i<=extras;i++) arr.push(`EP${i}`); return arr;
   }
   function baseDefense(){ const o={}; BASE_POSITIONS.forEach(p=>o[p]=null); return o; }
 
   // --------- Opponent helpers ---------
   function splitFullname(fullname){
-      const parts = fullname.trim().split(/\s+/);
-      const first = parts.shift()||''; const last = parts.join(' ');
-      return {first, last};
+    const parts = fullname.trim().split(/\s+/);
+    const first = parts.shift()||''; const last = parts.join(' ');
+    return {first, last};
   }
 
   async function ensureAnonPlayer(first,last,bats='R'){
-      const pid = await pidFromNameOnly(first,last);
-      if (!playerCache.has(pid)){
-        const ref=doc(db,"players",pid); const snap=await getDoc(ref);
-        if (!snap.exists()){
-          await setDoc(ref,{
-            first,last,dob:null,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,
-            bats:bats||'R', anon:true, photo:'',
-            stats:{PA:0,AB:0,H:0,"1B":0,"2B":0,"3B":0,HR:0,BB:0,K:0,AVG:"0.000",OBP:"0.000",SLG:"0.000",OPS:"0.000"},
-            createdAt:new Date().toISOString()
-          });
-          playerCache.set(pid,{first,last,dob:null,bats:bats||'R',anon:true});
-        }else{
-          const d=snap.data(); playerCache.set(pid,d);
-          if (bats && !d.bats){ await setDoc(ref,{bats},{merge:true}); playerCache.set(pid,{...d,bats}); }
-        }
+    const pid = await pidFromNameOnly(first,last);
+    if (!playerCache.has(pid)){
+      const ref=doc(db,"players",pid); const snap=await getDoc(ref);
+      if (!snap.exists()){
+        await setDoc(ref,{
+          first,last,dob:null,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,
+          bats:bats||'R', anon:true, photo:'',
+          stats:{PA:0,AB:0,H:0,"1B":0,"2B":0,"3B":0,HR:0,BB:0,K:0,AVG:"0.000",OBP:"0.000",SLG:"0.000",OPS:"0.000"},
+          createdAt:new Date().toISOString()
+        });
+        playerCache.set(pid,{first,last,dob:null,bats:bats||'R',anon:true});
+      }else{
+        const d=snap.data(); playerCache.set(pid,d);
+        if (bats && !d.bats){ await setDoc(ref,{bats},{merge:true}); playerCache.set(pid,{...d,bats}); }
       }
-      return pid;
+    }
+    return pid;
   }
 
   // --------- Opponent add flow ---------
   async function addOpponentPlayerFlow(fullname, bats='R'){
-      const opp = $('#gm-opp-name').value.trim() || currentGame?.meta?.opponent || 'Opponent';
-      if(!fullname){ $('#gm-opp-hint').textContent='Enter First Last'; return; }
-      const {first,last} = splitFullname(fullname);
-      const nameLower = `${first.toLowerCase()} ${last.toLowerCase()}`;
+    const opp = $('#gm-opp-name').value.trim() || currentGame?.meta?.opponent || 'Opponent';
+    if(!fullname){ $('#gm-opp-hint').textContent='Enter First Last'; return; }
+    const {first,last} = splitFullname(fullname);
+    const nameLower = `${first.toLowerCase()} ${last.toLowerCase()}`;
 
-      let chosenPid = null;
-      try{
-        const qy = query(collection(db,"players"), where('nameNorm','==', nameLower), limit(5));
-        const snap = await getDocs(qy);
-        if (!snap.empty){
-          const ok = confirm(`Use "${first} ${last}" from the global player pool?`);
-          chosenPid = ok ? snap.docs[0].id : await ensureAnonPlayer(first,`${last} (${opp})`,bats||'R');
-        } else {
-          chosenPid = await ensureAnonPlayer(first,last,bats||'R');
-        }
-      }catch(e){
-        console.error('global pool search failed', e);
+    let chosenPid = null;
+    try{
+      const qy = query(collection(db,"players"), where('nameNorm','==', nameLower), limit(5));
+      const snap = await getDocs(qy);
+      if (!snap.empty){
+        const ok = confirm(`Use "${first} ${last}" from the global player pool?`);
+        chosenPid = ok ? snap.docs[0].id : await ensureAnonPlayer(first,`${last} (${opp})`,bats||'R');
+      } else {
         chosenPid = await ensureAnonPlayer(first,last,bats||'R');
       }
+    }catch(e){
+      console.error('global pool search failed', e);
+      chosenPid = await ensureAnonPlayer(first,last,bats||'R');
+    }
 
-      try{ await addToOpponentPool(opp, chosenPid); }catch(e){ console.error('pool save failed', e); }
-      const key = oppKey(opp);
-      const cur = new Set((data.opponents?.[key] || [])); cur.add(chosenPid);
-      data.opponents = { ...(data.opponents||{}), [key]: Array.from(cur) };
+    try{ await addToOpponentPool(opp, chosenPid); }catch(e){ console.error('pool save failed', e); }
+    const key = oppKey(opp);
+    const cur = new Set((data.opponents?.[key] || [])); cur.add(chosenPid);
+    data.opponents = { ...(data.opponents||{}), [key]: Array.from(cur) };
 
-      try{
-        const ref=doc(db,"teams",teamDocId,"games",currentGameId);
-        const roster = Array.from(new Set([...(currentGame?.away?.roster||[]), chosenPid]));
-        await setDoc(ref, { away:{ ...(currentGame?.away||{}), roster } }, {merge:true});
-      }catch(e){ console.error('away.roster update failed', e); }
+    try{
+      const ref=doc(db,"teams",teamDocId,"games",currentGameId);
+      const roster = Array.from(new Set([...(currentGame?.away?.roster||[]), chosenPid]));
+      await setDoc(ref, { away:{ ...(currentGame?.away||{}), roster } }, {merge:true});
+    }catch(e){ console.error('away.roster update failed', e); }
 
-      $('#gm-opp-hint').textContent='Saved opponent player';
-      setTimeout(()=>$('#gm-opp-hint').textContent='',1200);
-      $('#gm-opp-add').value='';
-      await renderPregameBuilders();
+    $('#gm-opp-hint').textContent='Saved opponent player';
+    setTimeout(()=>$('#gm-opp-hint').textContent='',1200);
+    $('#gm-opp-add').value='';
+    await renderPregameBuilders();
   }
 
   async function addSavedOpponentToLineup(){
-      const pid = $('#gm-opp-saved').value;
-      if (!pid){ $('#gm-opp-hint').textContent='Pick a player from the list'; return; }
-      const side='away';
-      const arr = (currentGame?.[side]?.lineup || []);
-      let idx = arr.findIndex(x=>!x);
-      if (idx === -1){ idx = arr.length; arr.push(''); }
-      arr[idx] = pid;
-      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { [side]:{ ...(currentGame?.[side]||{}), lineup: arr } }, {merge:true});
-      const roster = Array.from(new Set([...(currentGame?.away?.roster||[]), pid]));
-      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { away:{ ...(currentGame?.away||{}), roster } }, {merge:true});
-      $('#gm-opp-hint').textContent='Added to lineup';
-      setTimeout(()=>$('#gm-opp-hint').textContent='',1000);
+    const pid = $('#gm-opp-saved').value;
+    if (!pid){ $('#gm-opp-hint').textContent='Pick a player from the list'; return; }
+    const side='away';
+    const arr = (currentGame?.[side]?.lineup || []);
+    let idx = arr.findIndex(x=>!x);
+    if (idx === -1){ idx = arr.length; arr.push(''); }
+    arr[idx] = pid;
+    await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { [side]:{ ...(currentGame?.[side]||{}), lineup: arr } }, {merge:true});
+    const roster = Array.from(new Set([...(currentGame?.away?.roster||[]), pid]));
+    await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { away:{ ...(currentGame?.away||{}), roster } }, {merge:true});
+    $('#gm-opp-hint').textContent='Added to lineup';
+    setTimeout(()=>$('#gm-opp-hint').textContent='',1000);
   }
 
   // ---------- Pregame builders ----------
   async function renderPregameBuilders(){
-      if(!currentGame) return;
-      renderLineupBuilder('home', data.roster||[], 'gm-lineup-home');
-      renderDefenseBuilder('home', data.roster||[], 'gm-defense-home');
+    if(!currentGame) return;
+    renderLineupBuilder('home', data.roster||[], 'gm-lineup-home');
+    renderDefenseBuilder('home', data.roster||[], 'gm-defense-home');
 
-      const opp = currentGame?.meta?.opponent || $('#gm-opp-name').value.trim() || '';
-      const poolIds   = new Set(getOpponentPoolIds(opp));
-      const rosterIds = (currentGame?.away?.roster||[]).filter(Boolean);
-      const lineupIds = (currentGame?.away?.lineup||[]).filter(Boolean);
-      const defIds    = Object.values(currentGame?.away?.defense||{}).filter(Boolean);
-      const allIds    = new Set([...poolIds, ...rosterIds, ...lineupIds, ...defIds]);
+    const opp = currentGame?.meta?.opponent || $('#gm-opp-name').value.trim() || '';
+    const poolIds   = new Set(getOpponentPoolIds(opp));
+    const rosterIds = (currentGame?.away?.roster||[]).filter(Boolean);
+    const lineupIds = (currentGame?.away?.lineup||[]).filter(Boolean);
+    const defIds    = Object.values(currentGame?.away?.defense||{}).filter(Boolean);
+    const allIds    = new Set([...poolIds, ...rosterIds, ...lineupIds, ...defIds]);
 
-      const olist = [];
-      for (const id of allIds){
-        if (!id) continue;
-        if (!playerCache.has(id)){
-          const s=await getDoc(doc(db,"players",id));
-          if (s.exists()) playerCache.set(id,s.data());
-        }
-        const p=playerCache.get(id)||{};
-        olist.push({ first:p.first||'', last:p.last||'', playerId:id, bats:p.bats||'R' });
+    const olist = [];
+    for (const id of allIds){
+      if (!id) continue;
+      if (!playerCache.has(id)){
+        const s=await getDoc(doc(db,"players",id));
+        if (s.exists()) playerCache.set(id,s.data());
       }
+      const p=playerCache.get(id)||{};
+      olist.push({ first:p.first||'', last:p.last||'', playerId:id, bats:p.bats||'R' });
+    }
 
-      renderLineupBuilder('away', olist, 'gm-lineup-away');
-      renderDefenseBuilder('away', olist, 'gm-defense-away');
+    renderLineupBuilder('away', olist, 'gm-lineup-away');
+    renderDefenseBuilder('away', olist, 'gm-defense-away');
 
-      const sel = $('#gm-opp-saved'); sel.innerHTML='';
-      const poolList = Array.from(poolIds);
-      if (!poolList.length){
-        sel.innerHTML = '<option value="">(no saved players yet)</option>';
-      }else{
-        for (const id of poolList){
-          const p = playerCache.get(id) || {};
-          const opt=document.createElement('option'); opt.value=id; opt.textContent=`${p.first||''} ${p.last||''}`.trim() || id;
-          sel.appendChild(opt);
-        }
+    const sel = $('#gm-opp-saved'); sel.innerHTML='';
+    const poolList = Array.from(poolIds);
+    if (!poolList.length){
+      sel.innerHTML = '<option value="">(no saved players yet)</option>';
+    }else{
+      for (const id of poolList){
+        const p = playerCache.get(id) || {};
+        const opt=document.createElement('option'); opt.value=id; opt.textContent=`${p.first||''} ${p.last||''}`.trim() || id;
+        sel.appendChild(opt);
       }
-      $('#gm-opp-name').value = opp;
+    }
+    $('#gm-opp-name').value = opp;
   }
 
   function nameForId(pid){
-      const r=(data.roster||[]).find(x=>x.playerId===pid);
-      if (r) return `${r.first||''} ${r.last||''}`.trim();
-      const p=playerCache.get(pid); if (p) return `${p.first||''} ${p.last||''}`.trim();
-      return String(pid||'').trim() || 'Player';
+    const r=(data.roster||[]).find(x=>x.playerId===pid);
+    if (r) return `${r.first||''} ${r.last||''}`.trim();
+    const p=playerCache.get(pid); if (p) return `${p.first||''} ${p.last||''}`.trim();
+    return String(pid||'').trim() || 'Player';
   }
 
   function renderLineupBuilder(side, rosterLike, mountId){
-      const host = document.getElementById(mountId); host.innerHTML='';
-      const arr = (currentGame?.[side]?.lineup && currentGame[side].lineup.length) ? currentGame[side].lineup : new Array(10).fill('');
-      const controls=document.createElement('div'); controls.className='row'; controls.style.margin='4px 0';
-      const addBtn=document.createElement('button'); addBtn.className='btn small'; addBtn.type='button'; addBtn.textContent='Add spot';
-      const remBtn=document.createElement('button'); remBtn.className='btn outline small'; remBtn.type='button'; remBtn.textContent='Remove last';
-      controls.appendChild(addBtn); controls.appendChild(remBtn); host.appendChild(controls);
+    const host = document.getElementById(mountId); host.innerHTML='';
+    const arr = (currentGame?.[side]?.lineup && currentGame[side].lineup.length) ? currentGame[side].lineup : new Array(10).fill('');
+    const controls=document.createElement('div'); controls.className='row'; controls.style.margin='4px 0';
+    const addBtn=document.createElement('button'); addBtn.className='btn small'; addBtn.type='button'; addBtn.textContent='Add spot';
+    const remBtn=document.createElement('button'); remBtn.className='btn outline small'; remBtn.type='button'; remBtn.textContent='Remove last';
+    controls.appendChild(addBtn); controls.appendChild(remBtn); host.appendChild(controls);
 
-      addBtn.onclick = async ()=>{
-        const next=[...arr, ''];
-        await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
-      };
-      remBtn.onclick = async ()=>{
-        const min=10; if (arr.length<=min) return;
-        const next=arr.slice(0,-1);
-        await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
-      };
+    addBtn.onclick = async ()=>{
+      const next=[...arr, ''];
+      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
+    };
+    remBtn.onclick = async ()=>{
+      const min=10; if (arr.length<=min) return;
+      const next=arr.slice(0,-1);
+      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
+    };
 
-      const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
-      for(let i=0;i<arr.length;i++){
-        const wrap=document.createElement('div'); wrap.className='row';
-        const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
-        const optsHtml='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
-        sel.innerHTML = optsHtml;
-        const cur = arr[i] || '';
-        if (cur && !options.some(o=>o.id===cur)){
-          const tmpOpt = document.createElement('option');
-          tmpOpt.value = cur; tmpOpt.textContent = nameForId(cur) || cur;
-          sel.appendChild(tmpOpt);
-        }
-        sel.value = cur;
-
-        const view=document.createElement('button'); view.className='btn outline small'; view.type='button'; view.textContent='View';
-        view.disabled = !cur;
-        if (cur) view.setAttribute('data-pid', cur);
-        sel.onchange=async()=>{
-          const next = Object.assign([], arr, {[i]:sel.value});
-          await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
-        };
-        sel.addEventListener('change', ()=>{
-          view.disabled = !sel.value;
-          if (sel.value) view.setAttribute('data-pid', sel.value); else view.removeAttribute('data-pid');
-        });
-
-        wrap.appendChild(document.createTextNode(String(i+1))); wrap.appendChild(sel); wrap.appendChild(view);
-        host.appendChild(wrap);
+    const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
+    for(let i=0;i<arr.length;i++){
+      const wrap=document.createElement('div'); wrap.className='row';
+      const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
+      const optsHtml='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
+      sel.innerHTML = optsHtml;
+      const cur = arr[i] || '';
+      if (cur && !options.some(o=>o.id===cur)){
+        const tmpOpt = document.createElement('option');
+        tmpOpt.value = cur; tmpOpt.textContent = nameForId(cur) || cur;
+        sel.appendChild(tmpOpt);
       }
+      sel.value = cur;
+
+      const view=document.createElement('button'); view.className='btn outline small'; view.type='button'; view.textContent='View';
+      view.disabled = !cur;
+      if (cur) view.setAttribute('data-pid', cur);
+      sel.onchange=async()=>{
+        const next = Object.assign([], arr, {[i]:sel.value});
+        await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
+      };
+      sel.addEventListener('change', ()=>{
+        view.disabled = !sel.value;
+        if (sel.value) view.setAttribute('data-pid', sel.value); else view.removeAttribute('data-pid');
+      });
+
+      wrap.appendChild(document.createTextNode(String(i+1))); wrap.appendChild(sel); wrap.appendChild(view);
+      host.appendChild(wrap);
+    }
   }
 
   function renderDefenseBuilder(side, rosterLike, mountId){
-      const host=document.getElementById(mountId); host.innerHTML='';
-      const def = currentGame?.[side]?.defense || {};
-      const POSITIONS = positionsForSide(side);
-      const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
-      POSITIONS.forEach(pos=>{
-        const row=document.createElement('div'); row.className='row';
-        const lab=document.createElement('div'); lab.className='small'; lab.style.width='46px'; lab.textContent=pos;
-        const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
-        sel.innerHTML='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
-        const cur = def[pos] || '';
-        if (cur && !options.some(o=>o.id===cur)){
-          const tmp=document.createElement('option'); tmp.value=cur; tmp.textContent=nameForId(cur)||cur; sel.appendChild(tmp);
-        }
-        sel.value=cur;
+    const host=document.getElementById(mountId); host.innerHTML='';
+    const def = currentGame?.[side]?.defense || {};
+    const POSITIONS = positionsForSide(side);
+    const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
+    POSITIONS.forEach(pos=>{
+      const row=document.createElement('div'); row.className='row';
+      const lab=document.createElement('div'); lab.className='small'; lab.style.width='46px'; lab.textContent=pos;
+      const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
+      sel.innerHTML='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
+      const cur = def[pos] || '';
+      if (cur && !options.some(o=>o.id===cur)){
+        const tmp=document.createElement('option'); tmp.value=cur; tmp.textContent=nameForId(cur)||cur; sel.appendChild(tmp);
+      }
+      sel.value=cur;
 
-        const view=document.createElement('button'); view.className='btn outline small'; view.type='button'; view.textContent='View';
-        view.disabled = !cur;
-        if (cur) view.setAttribute('data-pid', cur);
+      const view=document.createElement('button'); view.className='btn outline small'; view.type='button'; view.textContent='View';
+      view.disabled = !cur;
+      if (cur) view.setAttribute('data-pid', cur);
 
-        sel.onchange=async()=>{
-          const patch={}; patch[`${side}.defense.${pos}`]=sel.value||null;
-          await updateDoc(doc(db,"teams",teamDocId,"games",currentGameId), patch);
-        };
-        sel.addEventListener('change', ()=>{
-          view.disabled = !sel.value;
-          if (sel.value) view.setAttribute('data-pid', sel.value); else view.removeAttribute('data-pid');
-        });
-
-        row.appendChild(lab); row.appendChild(sel); row.appendChild(view); host.appendChild(row);
+      sel.onchange=async()=>{
+        const patch={}; patch[`${side}.defense.${pos}`]=sel.value||null;
+        await updateDoc(doc(db,"teams",teamDocId,"games",currentGameId), patch);
+      };
+      sel.addEventListener('change', ()=>{
+        view.disabled = !sel.value;
+        if (sel.value) view.setAttribute('data-pid', sel.value); else view.removeAttribute('data-pid');
       });
+
+      row.appendChild(lab); row.appendChild(sel); row.appendChild(view); host.appendChild(row);
+    });
   }
 
   async function savePregame(){
-      if(!currentGameId) return;
-      const opp = $('#gm-opp-name').value.trim() || currentGame?.meta?.opponent || 'Opponent';
-      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { meta:{ ...(currentGame?.meta||{}), opponent:opp, status:'live' } }, {merge:true});
-      $('#gm-pregame-msg').textContent='Saved. Game is LIVE.';
-      setTimeout(()=>$('#gm-pregame-msg').textContent='',2000);
-      await renderPregameBuilders();
+    if(!currentGameId) return;
+    const opp = $('#gm-opp-name').value.trim() || currentGame?.meta?.opponent || 'Opponent';
+    await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { meta:{ ...(currentGame?.meta||{}), opponent:opp, status:'live' } }, {merge:true});
+    $('#gm-pregame-msg').textContent='Saved. Game is LIVE.';
+    setTimeout(()=>$('#gm-pregame-msg').textContent='',2000);
+    await renderPregameBuilders();
   }
 
   // ---------- Live ----------
   function updateLiveViews(){
-      if(!currentGame) return;
-      populateBatterSelect();
-      renderBasesAndRunners(true);
-      updateGameHeader();
-      renderBoxScore();
+    if(!currentGame) return;
+    populateBatterSelect();
+    renderBasesAndRunners(true);
+    updateGameHeader();
+    renderBoxScore();
   }
   function populateBatterSelect(){
-      if(!currentGame) return;
-      const side = currentGame.inning?.half==='top' ? 'away' : 'home';
-      $('#gm-sel-side').value = side;
-      const sel=$('#gm-sel-batter'); sel.innerHTML='';
-      const arr = currentGame[side]?.lineup || [];
-      arr.forEach(pid=>{
-        const opt=document.createElement('option');
-        opt.value=pid; opt.textContent = nameForId(pid);
-        sel.appendChild(opt);
-      });
-      const idx = currentGame[side]?.batterIndex || 0;
-      sel.selectedIndex = (arr.length? (idx%arr.length) : -1);
+    if(!currentGame) return;
+    const side = currentGame.inning?.half==='top' ? 'away' : 'home';
+    $('#gm-sel-side').value = side;
+    const sel=$('#gm-sel-batter'); sel.innerHTML='';
+    const arr = currentGame[side]?.lineup || [];
+    arr.forEach(pid=>{
+      const opt=document.createElement('option');
+      opt.value=pid; opt.textContent = nameForId(pid);
+      sel.appendChild(opt);
+    });
+    const idx = currentGame[side]?.batterIndex || 0;
+    sel.selectedIndex = (arr.length? (idx%arr.length) : -1);
   }
 
   function updateGameHeader(){
-      if(!currentGame) return;
-      $('#gm-title').textContent = `${currentGame.home?.name||'Home'} vs ${currentGame.away?.name||currentGame.meta?.opponent||'Away'} —
-  ${currentGame.meta?.date||''}`;
-      $('#gm-bug-opp').textContent = `vs ${currentGame.meta?.opponent||'?'}`;
-      const s = computeScore(currentGame.plays||[]);
-      $('#gm-bug-score').textContent = `${s.home}–${s.away}`;
-      $('#gm-bug-inning').textContent = `${currentGame.inning?.half==='top'?'Top':'Bot'} ${currentGame.inning?.number||1} • ${currentGame.inning?.outs||
-  0} out`;
+    if(!currentGame) return;
+    $('#gm-title').textContent = `${currentGame.home?.name||'Home'} vs ${currentGame.away?.name||currentGame.meta?.opponent||'Away'} — ${currentGame.meta?.date||''}`;
+    $('#gm-bug-opp').textContent = `vs ${currentGame.meta?.opponent||'?'}`;
+    const s = computeScore(currentGame.plays||[]);
+    $('#gm-bug-score').textContent = `${s.home}–${s.away}`;
+    $('#gm-bug-inning').textContent = `${currentGame.inning?.half==='top'?'Top':'Bot'} ${currentGame.inning?.number||1} • ${currentGame.inning?.outs||0} out`;
   }
 
   // helper to render clickable who labels
   function setWho(sel, pid){
-      const el=$(sel);
-      el.innerHTML = pid ? `<span class="plink" data-pid="${pid}">${nameForId(pid)}</span>` : '—';
+    const el=$(sel);
+    el.innerHTML = pid ? `<span class="plink" data-pid="${pid}">${nameForId(pid)}</span>` : '—';
   }
 
   function renderBasesAndRunners(preview=false){
-      if(!currentGame) return;
-      const baseNow = currentGame.bases || { first:null,second:null,third:null };
-      const comb = preview ? Object.assign({first:null,second:null,third:null}, baseNow, pending.bases||{}) : baseNow;
+    if(!currentGame) return;
+    const baseNow = currentGame.bases || { first:null,second:null,third:null };
+    const comb = preview ? Object.assign({first:null,second:null,third:null}, baseNow, pending.bases||{}) : baseNow;
 
-      setWho('#gm-who-1B', comb.first);
-      setWho('#gm-who-2B', comb.second);
-      setWho('#gm-who-3B', comb.third);
-      const scoredHtml = (pending.scored&&pending.scored.length)
-        ? ('Scored: '+pending.scored.map(id=>`<span class="plink" data-pid="${id}">${nameForId(id)}</span>`).join(', '))
-        : '—';
-      $('#gm-who-H').innerHTML = scoredHtml;
+    setWho('#gm-who-1B', comb.first);
+    setWho('#gm-who-2B', comb.second);
+    setWho('#gm-who-3B', comb.third);
+    const scoredHtml = (pending.scored&&pending.scored.length)
+      ? ('Scored: '+pending.scored.map(id=>`<span class="plink" data-pid="${id}">${nameForId(id)}</span>`).join(', '))
+      : '—';
+    $('#gm-who-H').innerHTML = scoredHtml;
 
-      const chips = [];
-      if (comb.first)  chips.push({id:comb.first,  label:nameForId(comb.first)});
-      if (comb.second) chips.push({id:comb.second, label:nameForId(comb.second)});
-      if (comb.third)  chips.push({id:comb.third,  label:nameForId(comb.third)});
-      const batterId = $('#gm-sel-batter').value || 'Batter';
-      chips.push({id:batterId, label: nameForId(batterId) || 'Batter'});
+    const chips = [];
+    if (comb.first)  chips.push({id:comb.first,  label:nameForId(comb.first)});
+    if (comb.second) chips.push({id:comb.second, label:nameForId(comb.second)});
+    if (comb.third)  chips.push({id:comb.third,  label:nameForId(comb.third)});
+    const batterId = $('#gm-sel-batter').value || 'Batter';
+    chips.push({id:batterId, label: nameForId(batterId) || 'Batter'});
 
-      const host=$('#gm-runner-chips'); host.innerHTML='';
-      chips.forEach(c=>{
-        const el=document.createElement('div'); el.className='runner'; el.textContent=c.label; el.dataset.pid=c.id;
-        el.onclick=()=>{ $$('#gm-runner-chips .runner').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); host.dataset.sel = c.id;
-  $('#gm-base-msg').textContent='Selected: '+c.label; };
-        host.appendChild(el);
-      });
+    const host=$('#gm-runner-chips'); host.innerHTML='';
+    chips.forEach(c=>{
+      const el=document.createElement('div'); el.className='runner'; el.textContent=c.label; el.dataset.pid=c.id;
+      el.onclick=()=>{ $$('#gm-runner-chips .runner').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); host.dataset.sel = c.id; $('#gm-base-msg').textContent='Selected: '+c.label; };
+      host.appendChild(el);
+    });
   }
 
   function autoPlaceBatterPreview(){
-      const batterId = $('#gm-sel-batter').value || null; if (!batterId) return;
-      const alreadyPlaced = ['first','second','third'].some(k => (pending.bases||{})[k]===batterId);
-      if (alreadyPlaced) { renderBasesAndRunners(true); return; }
-      const r = pending.result;
-      if (r==='HR'){
-        pending.scored = Array.from(new Set([...(pending.scored||[]), batterId]));
-        for (const k of ['first','second','third']) if ((pending.bases||{})[k]===batterId) pending.bases[k]=null;
-      } else if (['1B','BB','ROE','FC','SAC'].includes(r)){
-        pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
-        pending.bases.first = batterId;
-      } else if (r==='2B'){
-        pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
-        pending.bases.second = batterId;
-      } else if (r==='3B'){
-        pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
-        pending.bases.third = batterId;
-      }
-      renderBasesAndRunners(true);
+    const batterId = $('#gm-sel-batter').value || null; if (!batterId) return;
+    const alreadyPlaced = ['first','second','third'].some(k => (pending.bases||{})[k]===batterId);
+    if (alreadyPlaced) { renderBasesAndRunners(true); return; }
+    const r = pending.result;
+    if (r==='HR'){
+      pending.scored = Array.from(new Set([...(pending.scored||[]), batterId]));
+      for (const k of ['first','second','third']) if ((pending.bases||{})[k]===batterId) pending.bases[k]=null;
+    } else if (['1B','BB','ROE','FC','SAC'].includes(r)){
+      pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
+      pending.bases.first = batterId;
+    } else if (r==='2B'){
+      pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
+      pending.bases.second = batterId;
+    } else if (r==='3B'){
+      pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
+      pending.bases.third = batterId;
+    }
+    renderBasesAndRunners(true);
   }
   function placeSelectedRunner(base){
-      const pid = $('#gm-runner-chips').dataset.sel; if(!pid){ $('#gm-base-msg').textContent='Select a runner first'; return; }
-      if (!pending.bases) pending.bases={ first:null,second:null,third:null };
-      for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
+    const pid = $('#gm-runner-chips').dataset.sel; if(!pid){ $('#gm-base-msg').textContent='Select a runner first'; return; }
+    if (!pending.bases) pending.bases={ first:null,second:null,third:null };
+    for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
 
-      if (base==='1B') pending.bases.first = pid;
-      else if (base==='2B') pending.bases.second = pid;
-      else if (base==='3B') pending.bases.third = pid;
-      else if (base==='HOME') {
-        if (!pending.scored) pending.scored=[];
-        if (!pending.scored.includes(pid)) pending.scored.push(pid);
-        for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
-        $('#gm-base-msg').textContent = 'Marked run';
-        renderBasesAndRunners(true); return;
-      }
-      $('#gm-base-msg').textContent = 'Placed '+nameForId(pid)+' on '+base;
-      renderBasesAndRunners(true);
+    if (base==='1B') pending.bases.first = pid;
+    else if (base==='2B') pending.bases.second = pid;
+    else if (base==='3B') pending.bases.third = pid;
+    else if (base==='HOME') {
+      if (!pending.scored) pending.scored=[];
+      if (!pending.scored.includes(pid)) pending.scored.push(pid);
+      for (const k of ['first','second','third']) if (pending.bases[k]===pid) pending.bases[k]=null;
+      $('#gm-base-msg').textContent = 'Marked run';
+      renderBasesAndRunners(true); return;
+    }
+    $('#gm-base-msg').textContent = 'Placed '+nameForId(pid)+' on '+base;
+    renderBasesAndRunners(true);
   }
 
   async function savePlay(){
-      if(!currentGameId) return;
-      const side = $('#gm-sel-side').value;
-      const batter = $('#gm-sel-batter').value || 'Unknown';
-      if (batter && !['first','second','third'].some(k => (pending.bases||{})[k]===batter) && !(pending.scored||[]).includes(batter)){
-        autoPlaceBatterPreview();
-      }
-      const after = Object.assign({ first:null,second:null,third:null }, currentGame.bases||{}, pending.bases||{});
-      const runs = (pending.scored||[]).length;
+    if(!currentGameId) return;
+    const side = $('#gm-sel-side').value;
+    const batter = $('#gm-sel-batter').value || 'Unknown';
+    if (batter && !['first','second','third'].some(k => (pending.bases||{})[k]===batter) && !(pending.scored||[]).includes(batter)){
+      autoPlaceBatterPreview();
+    }
+    const after = Object.assign({ first:null,second:null,third:null }, currentGame.bases||{}, pending.bases||{});
+    const runs = (pending.scored||[]).length;
 
-      const play = { ts:new Date().toISOString(), batting:side, batter,
-        result: pending.result || '1B', hard: pending.hard || 'Medium',
-        loc:{ x: pending.x, y: pending.y }, basesAfter: after, runs,
-        inning: currentGame.inning?.number||1, half: currentGame.inning?.half||'top',
-        comp: currentGame.meta?.comp || ''
-      };
+    const play = { ts:new Date().toISOString(), batting:side, batter,
+      result: pending.result || '1B', hard: pending.hard || 'Medium',
+      loc:{ x: pending.x, y: pending.y }, basesAfter: after, runs,
+      inning: currentGame.inning?.number||1, half: currentGame.inning?.half||'top',
+      comp: currentGame.meta?.comp || ''
+    };
 
-      const ref=doc(db,"teams",teamDocId,"games",currentGameId);
-      await updateDoc(ref, { plays: arrayUnion(play), bases: after });
-      const len = (currentGame?.[side]?.lineup||[]).length||0;
-      const next = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
-      await setDoc(ref, { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
+    const ref=doc(db,"teams",teamDocId,"games",currentGameId);
+    await updateDoc(ref, { plays: arrayUnion(play), bases: after });
+    const len = (currentGame?.[side]?.lineup||[]).length||0;
+    const next = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
+    await setDoc(ref, { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
 
-      pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null,second:null,third:null }, scored:[] };
-      $('#gm-base-msg').textContent='Play saved';
+    pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null,second:null,third:null }, scored:[] };
+    $('#gm-base-msg').textContent='Play saved';
   }
 
   async function undoLast(){
-      if(!currentGameId) return; const ref=doc(db,"teams",teamDocId,"games",currentGameId);
-      const snap=await getDoc(ref); if(!snap.exists()) return;
-      const plays=[...(snap.data().plays||[])]; plays.pop();
-      await setDoc(ref,{plays},{merge:true});
-      const last = plays[plays.length-1];
-      const b = last ? (last.basesAfter||{ first:null,second:null,third:null }) : { first:null,second:null,third:null };
-      await setDoc(ref,{bases:b},{merge:true});
+    if(!currentGameId) return; const ref=doc(db,"teams",teamDocId,"games",currentGameId);
+    const snap=await getDoc(ref); if(!snap.exists()) return;
+    const plays=[...(snap.data().plays||[])]; plays.pop();
+    await setDoc(ref,{plays},{merge:true});
+    const last = plays[plays.length-1];
+    const b = last ? (last.basesAfter||{ first:null,second:null,third:null }) : { first:null,second:null,third:null };
+    await setDoc(ref,{bases:b},{merge:true});
   }
   function computeScore(plays){
-      const score={home:0,away:0, byInning:{}};
-      (plays||[]).forEach(p=>{
-        const runs = Number(p.runs||0)||0;
-        score[p.batting]+=runs;
-        const inn=p.inning||1;
-        if(!score.byInning[inn]) score.byInning[inn]={home:0,away:0};
-        score.byInning[inn][p.batting]+=runs;
-      });
-      return score;
+    const score={home:0,away:0, byInning:{}};
+    (plays||[]).forEach(p=>{
+      const runs = Number(p.runs||0)||0;
+      score[p.batting]+=runs;
+      const inn=p.inning||1;
+      if(!score.byInning[inn]) score.byInning[inn]={home:0,away:0};
+      score.byInning[inn][p.batting]+=runs;
+    });
+    return score;
   }
   function renderBoxScore(){
-      if(!currentGame) return;
-      const score = computeScore(currentGame.plays||[]);
-      const maxInning = Math.max( ...[1, ...Object.keys(score.byInning).map(n=>Number(n)||1) ] );
-      let html = '<table class="table"><thead><tr><th></th>';
-      for(let i=1;i<=maxInning;i++) html += `<th>${i}</th>`;
-      html += '<th>R</th></tr></thead><tbody>';
-      const row = (name,side)=>{ let t=`<tr><td>${name}</td>`; for(let i=1;i<=maxInning;i++){ t+=`<td>${(score.byInning[i]?.[side]||0)}</td>`; }
-  t+=`<td>${score[side]}</td></tr>`; return t; };
-      html += row(currentGame.home?.name||'Home','home');
-      html += row(currentGame.away?.name||'Away','away');
-      html += '</tbody></table>';
-      $('#gm-boxscore').innerHTML = html;
+    if(!currentGame) return;
+    const score = computeScore(currentGame.plays||[]);
+    const maxInning = Math.max( ...[1, ...Object.keys(score.byInning).map(n=>Number(n)||1) ] );
+    let html = '<table class="table"><thead><tr><th></th>';
+    for(let i=1;i<=maxInning;i++) html += `<th>${i}</th>`;
+    html += '<th>R</th></tr></thead><tbody>';
+    const row = (name,side)=>{ let t=`<tr><td>${name}</td>`; for(let i=1;i<=maxInning;i++){ t+=`<td>${(score.byInning[i]?.[side]||0)}</td>`; } t+=`<td>${score[side]}</td></tr>`; return t; };
+    html += row(currentGame.home?.name||'Home','home');
+    html += row(currentGame.away?.name||'Away','away');
+    html += '</tbody></table>';
+    $('#gm-boxscore').innerHTML = html;
   }
 
   // ---------- Player Profile ----------
   let PP = { pid:null, player:null, teamRow:null, playsCache:null, scopes:[] };
 
   function setPlayerTab(which){
-      ['info','spray','stats'].forEach(t=>{
-        $('#pp-'+t).classList.toggle('active', t===which);
-        $('#pp-tab-'+t).classList.toggle('active', t===which);
-      });
-      if (which==='spray') refreshPlayerSpray();
-      if (which==='stats') refreshPlayerStats();
+    ['info','spray','stats'].forEach(t=>{
+      $('#pp-'+t).classList.toggle('active', t===which);
+      $('#pp-tab-'+t).classList.toggle('active', t===which);
+    });
+    if (which==='spray') refreshPlayerSpray();
+    if (which==='stats') refreshPlayerStats();
   }
 
   async function buildPlayerScopes(){
-      const gamesSnap = await getDocs(collection(doc(db,"teams",teamDocId),"games"));
-      const plays = [];
-      gamesSnap.forEach(docu=>{
-        const g = docu.data();
-        const list = (g.plays||[]).filter(p=>p.batter===PP.pid).map(p=>({ ...p, gameMeta: g.meta||{} }));
-        plays.push(...list);
-      });
-      PP.playsCache = plays;
-      const years = Array.from(new Set(plays.map(p=>(p.gameMeta?.date||'').slice(0,4)).filter(Boolean))).sort();
-      const comps = Array.from(new Set(plays.map(p=>p.gameMeta?.comp||p.comp||'').filter(Boolean))).sort();
-      PP.scopes = [{type:'career', label:'Career (this team)'}]
-        .concat(years.map(y=>({type:'season', value:y, label:`Season ${y}`})))
-        .concat(comps.map(c=>({type:'comp', value:c, label:`Competition: ${c}`})));
+    const gamesSnap = await getDocs(collection(doc(db,"teams",teamDocId),"games"));
+    const plays = [];
+    gamesSnap.forEach(docu=>{
+      const g = docu.data();
+      const list = (g.plays||[]).filter(p=>p.batter===PP.pid).map(p=>({ ...p, gameMeta: g.meta||{} }));
+      plays.push(...list);
+    });
+    PP.playsCache = plays;
+    const years = Array.from(new Set(plays.map(p=>(p.gameMeta?.date||'').slice(0,4)).filter(Boolean))).sort();
+    const comps = Array.from(new Set(plays.map(p=>p.gameMeta?.comp||p.comp||'').filter(Boolean))).sort();
+    PP.scopes = [{type:'career', label:'Career (this team)'}]
+      .concat(years.map(y=>({type:'season', value:y, label:`Season ${y}`})))
+      .concat(comps.map(c=>({type:'comp', value:c, label:`Competition: ${c}`})));
   }
   function fillScopeSelectors(){
-      const fill = (selId)=> {
-        const sel = $(selId); sel.innerHTML='';
-        PP.scopes.forEach(s=>{
-          const opt=document.createElement('option');
-          opt.value = s.type + (s.value?(':'+s.value):'');
-          opt.textContent = s.label;
-          sel.appendChild(opt);
-        });
-      };
-      fill('#pp-scope-spray'); fill('#pp-scope-stats');
+    const fill = (selId)=> {
+      const sel = $(selId); sel.innerHTML='';
+      PP.scopes.forEach(s=>{
+        const opt=document.createElement('option');
+        opt.value = s.type + (s.value?(':'+s.value):'');
+        opt.textContent = s.label;
+        sel.appendChild(opt);
+      });
+    };
+    fill('#pp-scope-spray'); fill('#pp-scope-stats');
   }
 
   function playsForScope(scope){
-      if(!PP.playsCache) return [];
-      const [type,val] = scope.split(':');
-      if (type==='career') return PP.playsCache;
-      if (type==='season') return PP.playsCache.filter(p => (p.gameMeta?.date||'').startsWith(val));
-      if (type==='comp')   return PP.playsCache.filter(p => (p.gameMeta?.comp||p.comp||'')===val);
-      return PP.playsCache;
+    if(!PP.playsCache) return [];
+    const [type,val] = scope.split(':');
+    if (type==='career') return PP.playsCache;
+    if (type==='season') return PP.playsCache.filter(p => (p.gameMeta?.date||'').startsWith(val));
+    if (type==='comp')   return PP.playsCache.filter(p => (p.gameMeta?.comp||p.comp||'')===val);
+    return PP.playsCache;
   }
 
   function refreshPlayerSpray(){
-      const scope = $('#pp-scope-spray').value || 'career';
-      const list = playsForScope(scope);
-      drawSprayChart($('#pp-canvas'), list);
+    const scope = $('#pp-scope-spray').value || 'career';
+    const list = playsForScope(scope);
+    drawSprayChart($('#pp-canvas'), list);
   }
 
   function drawSprayChart(canvas, plays){
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0,0,canvas.width,canvas.height);
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      const W=canvas.width, H=canvas.height;
-      ctx.strokeStyle='#1f2937'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(W*0.5, H*0.72, H*0.26, Math.PI, 2*Math.PI); ctx.stroke();
-      ctx.beginPath(); ctx.arc(W*0.5, H*0.72, H*0.17, Math.PI, 2*Math.PI); ctx.stroke();
-      const drawBase = (x,y)=>{ ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4); ctx.fillStyle='#cbd5e1'; ctx.fillRect(-6,-6,12,12); ctx.restore(); };
-      drawBase(W*0.5, H*0.82); drawBase(W*0.72, H*0.62); drawBase(W*0.5, H*0.42); drawBase(W*0.28, H*0.62);
+    const W=canvas.width, H=canvas.height;
+    ctx.strokeStyle='#1f2937'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(W*0.5, H*0.72, H*0.26, Math.PI, 2*Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W*0.5, H*0.72, H*0.17, Math.PI, 2*Math.PI); ctx.stroke();
+    const drawBase = (x,y)=>{ ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4); ctx.fillStyle='#cbd5e1'; ctx.fillRect(-6,-6,12,12); ctx.restore(); };
+    drawBase(W*0.5, H*0.82); drawBase(W*0.72, H*0.62); drawBase(W*0.5, H*0.42); drawBase(W*0.28, H*0.62);
 
-      plays.forEach(p=>{
-        if (!p.loc) return;
-        const x = Number(p.loc.x||p.x)*W;
-        const y = Number(p.loc.y||p.y)*H;
-        const isHit = ['1B','2B','3B','HR'].includes(p.result);
-        ctx.beginPath();
-        ctx.fillStyle = isHit ? '#4ade80' : '#f87171';
-        ctx.globalAlpha = 0.9;
-        ctx.arc(x, y, 5, 0, 2*Math.PI);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      });
+    plays.forEach(p=>{
+      if (!p.loc) return;
+      const x = Number(p.loc.x||p.x)*W;
+      const y = Number(p.loc.y||p.y)*H;
+      const isHit = ['1B','2B','3B','HR'].includes(p.result);
+      ctx.beginPath();
+      ctx.fillStyle = isHit ? '#4ade80' : '#f87171';
+      ctx.globalAlpha = 0.9;
+      ctx.arc(x, y, 5, 0, 2*Math.PI);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
 
-      ctx.fillStyle='#e5e7eb'; ctx.font='12px system-ui';
-      ctx.fillText('• Green: Hit   • Red: Out/other', 12, 20);
-      ctx.fillText(`Plays: ${plays.length}`, 12, 36);
+    ctx.fillStyle='#e5e7eb'; ctx.font='12px system-ui';
+    ctx.fillText('• Green: Hit   • Red: Out/other', 12, 20);
+    ctx.fillText(`Plays: ${plays.length}`, 12, 36);
   }
 
   function refreshPlayerStats(){
-      const scope = $('#pp-scope-stats').value || 'career';
-      const list = playsForScope(scope);
-      const s = computeStats(list);
-      const headers=['PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
-      const row = `<tr>
-        <td>${s.PA}</td><td>${s.AB}</td><td>${s.H}</td>
-        <td>${s['1B']}</td><td>${s['2B']}</td><td>${s['3B']}</td>
-        <td>${s.HR}</td><td>${s.BB}</td><td>${s.K}</td>
-        <td>${s.AVG}</td><td>${s.OBP}</td><td>${s.SLG}</td><td>${s.OPS}</td>
-      </tr>`;
-      $('#pp-stats-table').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${row}</tbody>`;
+    const scope = $('#pp-scope-stats').value || 'career';
+    const list = playsForScope(scope);
+    const s = computeStats(list);
+    const headers=['PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
+    const row = `<tr>
+      <td>${s.PA}</td><td>${s.AB}</td><td>${s.H}</td>
+      <td>${s['1B']}</td><td>${s['2B']}</td><td>${s['3B']}</td>
+      <td>${s.HR}</td><td>${s.BB}</td><td>${s.K}</td>
+      <td>${s.AVG}</td><td>${s.OBP}</td><td>${s.SLG}</td><td>${s.OPS}</td>
+    </tr>`;
+    $('#pp-stats-table').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${row}</tbody>`;
   }
 
   function computeStats(plays){
-      const cnt = { PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, SAC:0 };
-      for (const p of plays){
-        cnt.PA++;
-        const r=p.result;
-        if (r==='BB'){ cnt.BB++; continue; }
-        if (r==='SAC'){ cnt.SAC++; continue; }
-        if (['K','TSF'].includes(r)) { cnt.K++; cnt.AB++; continue; }
-        if (['GO','FO','LO','FC','ROE'].includes(r)) { cnt.AB++; if (r==='ROE') {} continue; }
-        if (['1B','2B','3B','HR'].includes(r)){ cnt[r]++; cnt.H++; cnt.AB++; continue; }
-      }
-      const TB = cnt['1B'] + cnt['2B']*2 + cnt['3B']*3 + cnt['HR']*4;
-      const AVG = (cnt.AB>0)? (cnt.H / cnt.AB).toFixed(3) : '0.000';
-      const OBP = ((cnt.H + cnt.BB) / (cnt.AB + cnt.BB + cnt.SAC || 1)).toFixed(3);
-      const SLG = (cnt.AB>0)? (TB / cnt.AB).toFixed(3) : '0.000';
-      const OPS = (parseFloat(OBP)+parseFloat(SLG)).toFixed(3);
-      return {...cnt, AVG, OBP, SLG, OPS};
+    const cnt = { PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, SAC:0 };
+    for (const p of plays){
+      cnt.PA++;
+      const r=p.result;
+      if (r==='BB'){ cnt.BB++; continue; }
+      if (r==='SAC'){ cnt.SAC++; continue; }
+      if (['K','TSF'].includes(r)) { cnt.K++; cnt.AB++; continue; }
+      if (['GO','FO','LO','FC','ROE'].includes(r)) { cnt.AB++; if (r==='ROE') {} continue; }
+      if (['1B','2B','3B','HR'].includes(r)){ cnt[r]++; cnt.H++; cnt.AB++; continue; }
+    }
+    const TB = cnt['1B'] + cnt['2B']*2 + cnt['3B']*3 + cnt['HR']*4;
+    const AVG = (cnt.AB>0)? (cnt.H / cnt.AB).toFixed(3) : '0.000';
+    const OBP = ((cnt.H + cnt.BB) / (cnt.AB + cnt.BB + cnt.SAC || 1)).toFixed(3);
+    const SLG = (cnt.AB>0)? (TB / cnt.AB).toFixed(3) : '0.000';
+    const OPS = (parseFloat(OBP)+parseFloat(SLG)).toFixed(3);
+    return {...cnt, AVG, OBP, SLG, OPS};
   }
 
   // ---------- Save global + team fields ----------
   async function onPlayerPhotoSelected(e){
-      const f=e.target.files?.[0]; if(!f) return;
-      const dataUrl = await fileToDataURL(f);
-      $('#pp-photo').src = dataUrl;
+    const f=e.target.files?.[0]; if(!f) return;
+    const dataUrl = await fileToDataURL(f);
+    $('#pp-photo').src = dataUrl;
   }
   async function savePlayerGlobal(){
-      const patch = {
-        first: $('#pp-first').value.trim(),
-        last : $('#pp-last').value.trim(),
-        dob  : $('#pp-dob').value || null,
-        bats : $('#pp-bats').value || 'R',
-        ranks: { nsa: $('#pp-nsa').value.trim(), spn: $('#pp-spn').value.trim() },
-        photo: $('#pp-photo').src || ''
-      };
-      await setDoc(doc(db,"players",PP.pid), patch, {merge:true});
-      playerCache.set(PP.pid, { ...(playerCache.get(PP.pid)||{}), ...patch });
-      $('#pp-msg').textContent='Saved';
-      setTimeout(()=>$('#pp-msg').textContent='',1200);
-      renderStats(); renderRoster();
+    const patch = {
+      first: $('#pp-first').value.trim(),
+      last : $('#pp-last').value.trim(),
+      dob  : $('#pp-dob').value || null,
+      bats : $('#pp-bats').value || 'R',
+      ranks: { nsa: $('#pp-nsa').value.trim(), spn: $('#pp-spn').value.trim() },
+      photo: $('#pp-photo').src || ''
+    };
+    await setDoc(doc(db,"players",PP.pid), patch, {merge:true});
+    playerCache.set(PP.pid, { ...(playerCache.get(PP.pid)||{}), ...patch });
+    $('#pp-msg').textContent='Saved';
+    setTimeout(()=>$('#pp-msg').textContent='',1200);
+    renderStats(); renderRoster();
   }
   async function savePlayerTeamFields(){
-      const num = $('#pp-num').value?Number($('#pp-num').value):undefined;
-      const pos = $('#pp-pos').value.split(/\s*,\s*/).filter(Boolean);
-      const roster = (data.roster||[]).map(r => r.playerId===PP.pid ? { ...r, number:num, positions:pos } : r);
-      data.roster = roster;
-      await saveTeamDoc({ roster });
-      renderRoster();
-      $('#pp-msg').textContent='Team fields saved';
-      setTimeout(()=>$('#pp-msg').textContent='',1200);
+    const num = $('#pp-num').value?Number($('#pp-num').value):undefined;
+    const pos = $('#pp-pos').value.split(/\s*,\s*/).filter(Boolean);
+    const roster = (data.roster||[]).map(r => r.playerId===PP.pid ? { ...r, number:num, positions:pos } : r);
+    data.roster = roster;
+    await saveTeamDoc({ roster });
+    renderRoster();
+    $('#pp-msg').textContent='Team fields saved';
+    setTimeout(()=>$('#pp-msg').textContent='',1200);
   }
 
   // ---------- Helpers ----------
   function setGameTab(which){
-      ['setup','live'].forEach(t=>{
-        $('#gm-'+t).classList.toggle('active', t===which);
-        $('#gm-tab-'+t).classList.toggle('active', t===which);
-      });
+    ['setup','live'].forEach(t=>{
+      $('#gm-'+t).classList.toggle('active', t===which);
+      $('#gm-tab-'+t).classList.toggle('active', t===which);
+    });
   }
   function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
 
   // ---------- Player Profile (open first, then fill) ----------
   async function openPlayerProfile(pid){
-      $('#player-modal').style.display = 'flex';
-      setPlayerTab('info');
-      $('#pp-title').textContent = 'Loading…';
-      $('#pp-photo').src = '';
-      $('#pp-first').value = $('#pp-last').value = '';
-      $('#pp-dob').value = '';
-      $('#pp-bats').value = 'R';
-      $('#pp-nsa').value = $('#pp-spn').value = '';
-      $('#pp-num').value = '';
-      $('#pp-pos').value = '';
+    $('#player-modal').style.display = 'flex';
+    setPlayerTab('info');
+    $('#pp-title').textContent = 'Loading…';
+    $('#pp-photo').src = '';
+    $('#pp-first').value = $('#pp-last').value = '';
+    $('#pp-dob').value = '';
+    $('#pp-bats').value = 'R';
+    $('#pp-nsa').value = $('#pp-spn').value = '';
+    $('#pp-num').value = '';
+    $('#pp-pos').value = '';
 
-      try{
-        PP = { pid, player:null, teamRow:(data.roster||[]).find(r=>r.playerId===pid)||null, playsCache:null, scopes:[] };
-        const snap = await getDoc(doc(db,"players",pid));
-        PP.player = snap.exists() ? snap.data() : { first:'', last:'', dob:'', bats:'R', ranks:{}, photo:'' };
-        playerCache.set(pid, PP.player);
+    try{
+      PP = { pid, player:null, teamRow:(data.roster||[]).find(r=>r.playerId===pid)||null, playsCache:null, scopes:[] };
+      const snap = await getDoc(doc(db,"players",pid));
+      PP.player = snap.exists() ? snap.data() : { first:'', last:'', dob:'', bats:'R', ranks:{}, photo:'' };
+      playerCache.set(pid, PP.player);
 
-        $('#pp-title').textContent = `${PP.player.first||''} ${PP.player.last||''}`.trim() || pid;
-        $('#pp-photo').src = PP.player.photo || '';
-        $('#pp-first').value = PP.player.first || '';
-        $('#pp-last').value  = PP.player.last || '';
-        $('#pp-dob').value   = PP.player.dob || '';
-        $('#pp-bats').value  = PP.player.bats || 'R';
-        $('#pp-nsa').value   = PP.player.ranks?.nsa || '';
-        $('#pp-spn').value   = PP.player.ranks?.spn || '';
-        $('#pp-num').value   = PP.teamRow?.number || '';
-        $('#pp-pos').value   = (PP.teamRow?.positions||[]).join(', ');
+      $('#pp-title').textContent = `${PP.player.first||''} ${PP.player.last||''}`.trim() || pid;
+      $('#pp-photo').src = PP.player.photo || '';
+      $('#pp-first').value = PP.player.first || '';
+      $('#pp-last').value  = PP.player.last || '';
+      $('#pp-dob').value   = PP.player.dob || '';
+      $('#pp-bats').value  = PP.player.bats || 'R';
+      $('#pp-nsa').value   = PP.player.ranks?.nsa || '';
+      $('#pp-spn').value   = PP.player.ranks?.spn || '';
+      $('#pp-num').value   = PP.teamRow?.number || '';
+      $('#pp-pos').value   = (PP.teamRow?.positions||[]).join(', ');
 
-        await buildPlayerScopes();
-        fillScopeSelectors();
-      }catch(err){
-        console.error(err);
-        $('#pp-title').textContent = 'Player';
-        const msg = document.createElement('div');
-        msg.className = 'small bad';
-        msg.textContent = 'Failed to load player: ' + (err.message || String(err));
-        $('#pp-info').prepend(msg);
-      }
+      await buildPlayerScopes();
+      fillScopeSelectors();
+    }catch(err){
+      console.error(err);
+      $('#pp-title').textContent = 'Player';
+      const msg = document.createElement('div');
+      msg.className = 'small bad';
+      msg.textContent = 'Failed to load player: ' + (err.message || String(err));
+      $('#pp-info').prepend(msg);
+    }
   }
   // expose for safety
   window.openPlayerProfile = openPlayerProfile;
@@ -1482,33 +1518,57 @@
   window.autoPlaceBatterPreview = ()=>autoPlaceBatterPreview();
   window.savePlay = ()=>savePlay();
   window.pending = pending;
+</script>
 
-      <h3 style="margin-top:0">Play details</h3>
-      <div class="row">
-        <div style="max-width:240px;flex:1 1 240px">
-          <label for="md-result">Result</label>
-          <select id="md-result" class="input">
-            <option value="1B">Single</option>
-            <option value="2B">Double</option>
-            <option value="3B">Triple</option>
-            <option value="HR">Home Run</option>
-            <option value="BB">Walk</option>
-            <option value="K">Strikeout</option>
-            <option value="TSF">Third-strike foul</option>
-            <option value="GO">Groundout</option>
-            <option value="FO">Flyout</option>
-            <option value="LO">Lineout</option>
-            <option value="ROE">Reach on Error</option>
-            <option value="FC">Fielder's Choice</option>
-            <option value="SAC">Sacrifice</option>
-          </select>
-        </div>
-        <div style="max-width:180px;flex:1 1 180px">
-          <label for="md-hard">Contact</label>
-          <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
-        </div>
+<!-- Result modal -->
+<div id="modal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:60;pointer-events:none">
+  <div class="modal-card" style="background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px;pointer-events:auto">
+    <h3 style="margin-top:0">Play details</h3>
+    <div class="row">
+      <div style="max-width:240px;flex:1 1 240px">
+        <label for="md-result">Result</label>
+        <select id="md-result" class="input">
+          <option value="1B">Single</option>
+          <option value="2B">Double</option>
+          <option value="3B">Triple</option>
+          <option value="HR">Home Run</option>
+          <option value="BB">Walk</option>
+          <option value="K">Strikeout</option>
+          <option value="TSF">Third-strike foul</option>
+          <option value="GO">Groundout</option>
+          <option value="FO">Flyout</option>
+          <option value="LO">Lineout</option>
+          <option value="ROE">Reach on Error</option>
+          <option value="FC">Fielder's Choice</option>
+          <option value="SAC">Sacrifice</option>
+        </select>
       </div>
-      <p class="small">Place runners with the base panel. Click <b>Save play</b> when ready.</p>
-      <div class="row" style="justify-content:flex-end">
-        <button id="md-save" class="btn" type="button">Save play</button>
-        <button id="md-close" class="btn outline" type="button">Close</button>
+      <div style="max-width:180px;flex:1 1 180px">
+        <label for="md-hard">Contact</label>
+        <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
+      </div>
+    </div>
+    <p class="small">Place runners with the base panel. Click <b>Save play</b> when ready.</p>
+    <div class="row" style="justify-content:flex-end">
+      <button id="md-save" class="btn" type="button">Save play</button>
+      <button id="md-close" class="btn outline" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // Modal wiring
+  document.getElementById('md-result').onchange = (e)=>{ window.pending.result = e.target.value; window.autoPlaceBatterPreview?.(); };
+  document.getElementById('md-hard').onchange   = (e)=>{ window.pending.hard = e.target.value; };
+  document.getElementById('md-close').onclick   = ()=> document.getElementById('modal').style.display='none';
+  document.getElementById('md-save').onclick    = ()=> { document.getElementById('modal').style.display='none'; window.savePlay?.(); };
+
+  // safety shim
+  window.openPlayerProfile = window.openPlayerProfile || (pid => {});
+</script>
+
+<noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
+JavaScript is disabled. Enable it to use StatsDonkey.
+</div></noscript>
+</body>
+</html>
