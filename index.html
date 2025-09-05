@@ -582,13 +582,16 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#pp-scope-stats').onchange = ()=> refreshPlayerStats();
 
     // Global delegated click: ANYTHING with data-pid opens the profile
-    document.addEventListener('click', (ev)=>{
+    document.addEventListener('click', (ev) => {
       const tgt = ev.target.closest('[data-pid]');
       if (!tgt) return;
       const pid = tgt.getAttribute('data-pid');
       if (!pid) return;
       ev.preventDefault();
       openPlayerProfile(pid);
+       if (typeof window.openPlayerProfile === 'function') {
+        window.openPlayerProfile(pid);
+      }
     });
 
     setDbg('ready');
