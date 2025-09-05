@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R24</title>
+<title>StatsDonkey — R26</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -33,6 +33,7 @@ label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:4px}
 .cell .events li:hover{outline:1px solid #334155}
 .empty-hint{grid-column:1/-1;text-align:center;color:#94a3b8;padding:8px}
 
+.link{cursor:pointer;color:#93c5fd;text-decoration:underline}
 nav{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
 nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto;padding:10px 16px}
 .brand{font-weight:800;color:#4ade80} .spacer{flex:1}
@@ -54,7 +55,19 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 #gm-setup,#gm-live{display:none}
 #gm-setup.active,#gm-live.active{display:block}
 
-#diamond-wrap{display:flex;gap:16px;flex-wrap:wrap}
+/* PLAYER MODAL */
+#player-modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:16px;z-index:70}
+.pm-card{background:#0f172a;border:1px solid #1f2937;border-radius:18px;max-width:1000px;width:100%;max-height:92vh;display:flex;flex-direction:column}
+.pm-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1f2937}
+.pm-title{font-weight:800}
+.pm-body{padding:12px;overflow:auto}
+.pm-tabs{display:flex;gap:8px;margin-bottom:10px}
+.pm-tab{background:transparent;border:1px solid #334155;border-radius:999px;padding:8px 12px;color:#e5e7eb;cursor:pointer}
+.pm-tab.active{border-color:var(--acc);color:var(--acc)}
+#pp-info,#pp-spray,#pp-stats{display:none}
+#pp-info.active,#pp-spray.active,#pp-stats.active{display:block}
+.pm-photo{width:120px;height:120px;object-fit:cover;border-radius:12px;border:1px solid #334155;background:#0b1326}
+
 #gm-diamond{background:#0b1326;border:1px solid #1f2937;border-radius:12px;padding:8px;cursor:crosshair}
 .basegrid{display:grid;grid-template-columns:repeat(3,100px);grid-auto-rows:76px;gap:10px}
 .base{border:1px solid #334155;border-radius:12px;padding:8px}
@@ -62,10 +75,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .runners{display:flex;gap:6px;flex-wrap:wrap}
 .runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
 .runner.sel{outline:2px solid var(--acc)}
-
-/* Result modal */
-#modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:60;pointer-events:none}
-#modal .modal-card{background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px;pointer-events:auto}
 </style>
 </head>
 <body>
@@ -74,7 +83,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R24</span>
+    <span class="small">BUILD R26</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -187,11 +196,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="scroll stats">
       <table class="table sortable" id="tbl-stats"></table>
     </div>
-    <p class="small">Totals come from the player's global profile (across all teams).</p>
+    <p class="small">Totals come from plays recorded and the player's global profile.</p>
   </section>
 </main>
 
-<!-- GAME TRACKER MODAL -->
+<!-- GAME TRACKER MODAL (unchanged core behavior) -->
 <div id="game-modal" role="dialog" aria-modal="true" aria-label="Game tracker">
   <div class="gm-card">
     <div class="gm-head">
@@ -209,7 +218,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         <button id="gm-tab-setup" class="gm-tab active" type="button">Pregame</button>
         <button id="gm-tab-live"  class="gm-tab" type="button">Live</button>
       </div>
-
       <div id="gm-setup" class="active">
         <div class="row">
           <div style="flex:1 1 420px;min-width:280px">
@@ -238,7 +246,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           <button id="gm-btn-opp-add" class="btn" type="button" style="align-self:flex-end">Add</button>
         </div>
 
-        <!-- Saved pool for this opponent -->
         <div class="row">
           <div style="max-width:340px;flex:1 1 340px">
             <label for="gm-opp-saved">Saved opponent players</label>
@@ -316,38 +323,73 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   </div>
 </div>
 
-<!-- Result modal -->
-<div id="modal">
-  <div class="modal-card">
-    <h3 style="margin-top:0">Play details</h3>
-    <div class="row">
-      <div style="max-width:240px;flex:1 1 240px">
-        <label for="md-result">Result</label>
-        <select id="md-result" class="input">
-          <option value="1B">Single</option>
-          <option value="2B">Double</option>
-          <option value="3B">Triple</option>
-          <option value="HR">Home Run</option>
-          <option value="BB">Walk</option>
-          <option value="K">Strikeout</option>
-          <option value="TSF">Third-strike foul</option>
-          <option value="GO">Groundout</option>
-          <option value="FO">Flyout</option>
-          <option value="LO">Lineout</option>
-          <option value="ROE">Reach on Error</option>
-          <option value="FC">Fielder's Choice</option>
-          <option value="SAC">Sacrifice</option>
-        </select>
-      </div>
-      <div style="max-width:180px;flex:1 1 180px">
-        <label for="md-hard">Contact</label>
-        <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
-      </div>
+<!-- PLAYER PROFILE MODAL -->
+<div id="player-modal" role="dialog" aria-modal="true" aria-label="Player profile">
+  <div class="pm-card">
+    <div class="pm-head">
+      <div class="pm-title" id="pp-title">Player</div>
+      <div class="spacer"></div>
+      <button id="pp-close" class="btn outline small" type="button">Close</button>
     </div>
-    <p class="small">Place runners with the base panel. Click <b>Save play</b> when ready.</p>
-    <div class="row" style="justify-content:flex-end">
-      <button id="md-save" class="btn" type="button">Save play</button>
-      <button id="md-close" class="btn outline" type="button">Close</button>
+    <div class="pm-body">
+      <div class="pm-tabs">
+        <button id="pp-tab-info"  class="pm-tab active" type="button">Info</button>
+        <button id="pp-tab-spray" class="pm-tab" type="button">Spray</button>
+        <button id="pp-tab-stats" class="pm-tab" type="button">Stats</button>
+      </div>
+
+      <div id="pp-info" class="active">
+        <div class="row">
+          <img id="pp-photo" class="pm-photo" alt="player photo"/>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label>Change photo<input id="pp-photo-file" type="file" accept="image/*" class="input"></label>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <h3 style="margin:0 0 8px">Global profile</h3>
+        <div class="row">
+          <div style="max-width:180px;flex:1 1 180px"><label>First</label><input id="pp-first" class="input"></div>
+          <div style="max-width:180px;flex:1 1 180px"><label>Last</label><input id="pp-last" class="input"></div>
+          <div style="max-width:180px;flex:1 1 180px"><label>DOB</label><input id="pp-dob" class="input" type="date"></div>
+          <div style="max-width:120px;flex:1 1 120px"><label>Bats</label>
+            <select id="pp-bats" class="input"><option value="R">Right</option><option value="L">Left</option><option value="S">Switch</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div style="max-width:180px;flex:1 1 180px"><label>NSA rank</label><input id="pp-nsa" class="input"></div>
+          <div style="max-width:180px;flex:1 1 180px"><label>SPN rank</label><input id="pp-spn" class="input"></div>
+          <button id="pp-save-global" class="btn" type="button">Save global</button>
+          <span id="pp-msg" class="small"></span>
+        </div>
+
+        <div class="hr"></div>
+        <h3 style="margin:0 0 8px">Team settings (for this team)</h3>
+        <div class="row">
+          <div style="max-width:120px;flex:1 1 120px"><label>#</label><input id="pp-num" class="input" type="number"></div>
+          <div style="max-width:260px;flex:1 1 260px"><label>Positions</label><input id="pp-pos" class="input" placeholder="e.g., SS, OF"></div>
+          <button id="pp-save-team" class="btn" type="button">Save team fields</button>
+        </div>
+      </div>
+
+      <div id="pp-spray">
+        <div class="row">
+          <select id="pp-scope-spray" class="input" style="max-width:260px"></select>
+          <span class="small">Pick a view to redraw the spray chart</span>
+        </div>
+        <div class="hr"></div>
+        <canvas id="pp-canvas" width="640" height="480" style="max-width:100%;border:1px solid #1f2937;border-radius:12px;background:#0b1326"></canvas>
+      </div>
+
+      <div id="pp-stats">
+        <div class="row">
+          <select id="pp-scope-stats" class="input" style="max-width:260px"></select>
+        </div>
+        <div class="hr"></div>
+        <div class="scroll" style="max-height:50vh">
+          <table class="table" id="pp-stats-table"></table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -363,7 +405,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     getDocs, query, where, orderBy, startAt, endAt, limit, updateDoc, arrayUnion
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // === Firebase config (your keys) ===
+  // === YOUR Firebase config ===
   const firebaseConfig = {
     apiKey: "AIzaSyD3uKx0mIPTMT0pkL1Dxi-cGZiEZoQG3AU",
     authDomain: "statsdonkey-c276c.firebaseapp.com",
@@ -403,6 +445,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
     return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
+  const fileToDataURL = (file)=> new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=rej; r.readAsDataURL(file); });
 
   // ---------- State ----------
   let teamDocId = null, unsubTeam = null, unsubGame = null;
@@ -490,6 +533,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#prev-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()-1, 1); renderCalendar(); };
     $('#next-month').onclick = ()=>{ calCurrent=new Date(calCurrent.getFullYear(), calCurrent.getMonth()+1, 1); renderCalendar(); };
 
+    // Game modal controls
     $('#gm-tab-setup').onclick = ()=> setGameTab('setup');
     $('#gm-tab-live').onclick  = ()=> setGameTab('live');
     $('#gm-close').onclick     = closeGameModal;
@@ -508,28 +552,35 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       pending.result='1B'; pending.hard='Medium';
       pending.bases = { first:null, second:null, third:null }; pending.scored = [];
       renderBasesAndRunners(true);
-      $('#modal').style.display='flex';
+      // open mini modal inside game modal
+      document.getElementById('modal').style.display='flex';
     });
-    // Modal controls
-    $('#md-result').onchange = ()=> { pending.result = $('#md-result').value; autoPlaceBatterPreview(); };
-    $('#md-hard').onchange   = ()=> pending.hard   = $('#md-hard').value;
-    $('#md-close').onclick   = ()=> $('#modal').style.display='none';
-    $('#md-save').onclick    = ()=> { savePlay(); $('#modal').style.display='none'; };
-
     $$('.base').forEach(b=>{ b.onclick = ()=> placeSelectedRunner(b.dataset.base); });
+
+    // Opponent add flow
     $('#gm-btn-opp-add').onclick = ()=> addOpponentPlayerFlow($('#gm-opp-add').value.trim(), $('#gm-opp-bats').value);
     $('#gm-btn-opp-use-saved').onclick = ()=> addSavedOpponentToLineup();
     $('#gm-opp-name').addEventListener('change', ()=> renderPregameBuilders());
-
     $('#gm-save-pregame').onclick = savePregame;
 
-    // Team profile save + logo preview
+    // Team profile
     $('#team-logo').addEventListener('change', async (e)=>{
       const f = e.target.files?.[0]; if (!f) return;
       const url = await fileToDataURL(f);
       $('#logo-preview').src = url; $('#logo-preview').style.display='block';
     });
     $('#btn-save-team').onclick = saveTeamProfile;
+
+    // Player modal
+    $('#pp-close').onclick = ()=> $('#player-modal').style.display='none';
+    $('#pp-tab-info').onclick  = ()=> setPlayerTab('info');
+    $('#pp-tab-spray').onclick = ()=> setPlayerTab('spray');
+    $('#pp-tab-stats').onclick = ()=> setPlayerTab('stats');
+    $('#pp-photo-file').addEventListener('change', onPlayerPhotoSelected);
+    $('#pp-save-global').onclick = savePlayerGlobal;
+    $('#pp-save-team').onclick   = savePlayerTeamFields;
+    $('#pp-scope-spray').onchange = ()=> refreshPlayerSpray();
+    $('#pp-scope-stats').onchange = ()=> refreshPlayerStats();
 
     setDbg('ready');
   })();
@@ -553,14 +604,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   }
 
   // ---------- Team profile ----------
-  async function fileToDataURL(file){
-    return new Promise((res,rej)=>{
-      const r = new FileReader();
-      r.onload = ()=> res(String(r.result));
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
-  }
   async function saveTeamProfile(){
     const name = $('#team-name').value.trim();
     const file = $('#team-logo').files?.[0];
@@ -585,7 +628,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       if (!pSnap.exists()){
         await setDoc(pRef,{
           first,last,dob,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,bats,
-          ranks:{nsa,spn},
+          ranks:{nsa,spn}, photo:'',
           stats:{PA:0,AB:0,H:0,"1B":0,"2B":0,"3B":0,HR:0,BB:0,K:0,AVG:"0.000",OBP:"0.000",SLG:"0.000",OPS:"0.000"},
           createdAt:new Date().toISOString()
         },{merge:true});
@@ -626,7 +669,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         const already=(data.roster||[]).some(x=>x.playerId===r.id);
         li.innerHTML=`
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <div><b>${r.first||''} ${r.last||''}</b> — DOB: ${r.dob||'—'} • Bats: ${r.bats||'R'}</div>
+            <div><b class="link" data-pid="${r.id}">${r.first||''} ${r.last||''}</b> — DOB: ${r.dob||'—'} • Bats: ${r.bats||'R'}</div>
             <div class="small">NSA: ${r.ranks?.nsa||'-'} | SPN: ${r.ranks?.spn||'-'}</div>
             ${already?'<span class="small" style="color:#34d399">Already on roster</span>':'<button class="btn small" data-add="'+r.id+'">Add to team</button>'}
           </div>`;
@@ -644,12 +687,14 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           btn.replaceWith((()=>{const t=document.createElement('span'); t.className='small'; t.style.color='#34d399'; t.textContent='Added'; return t; })());
         };
       });
+      // open profile from search results
+      out.querySelectorAll('.link[data-pid]').forEach(a => a.onclick = () => openPlayerProfile(a.getAttribute('data-pid')));
     }catch(e){ console.error(e); out.textContent='Search failed.'; }
   }
 
   function renderRoster(){
     const rows=(data.roster||[]).map(p=>`<tr>
-      <td>${p.first} ${p.last}</td>
+      <td><span class="link" data-pid="${p.playerId}">${p.first} ${p.last}</span></td>
       <td>${p.number||''}</td>
       <td>${(p.positions||[]).join(', ')}</td>
       <td>${p.dob||''}</td>
@@ -664,9 +709,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $$('#tbl-roster button[data-del-pid]').forEach(btn=>{
       btn.onclick = ()=> removeFromRoster(btn.getAttribute('data-del-pid'));
     });
+    // hook name clicks to profile
+    $$('#tbl-roster .link[data-pid]').forEach(a => a.onclick = () => openPlayerProfile(a.getAttribute('data-pid')));
   }
 
-  // ---------- Stats ----------
+  // ---------- Stats (team table; names clickable) ----------
   function renderStats(){
     const headers = ['Player','PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
     const body = (data.roster||[]).map(r=>{
@@ -674,7 +721,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const s = p.stats || {};
       const nm = `${r.first||''} ${r.last||''}`.trim();
       return `<tr>
-        <td>${nm} <span class="small" style="opacity:.8">(${p.bats||r.bats||'R'})</span></td>
+        <td><span class="link" data-pid="${r.playerId}">${nm}</span> <span class="small" style="opacity:.8">(${p.bats||r.bats||'R'})</span></td>
         <td>${s.PA||0}</td><td>${s.AB||0}</td><td>${s.H||0}</td>
         <td>${s['1B']||0}</td><td>${s['2B']||0}</td><td>${s['3B']||0}</td>
         <td>${s.HR||0}</td><td>${s.BB||0}</td><td>${s.K||0}</td>
@@ -682,6 +729,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       </tr>`;
     }).join('');
     $('#tbl-stats').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody>`;
+    $$('#tbl-stats .link[data-pid]').forEach(a => a.onclick = () => openPlayerProfile(a.getAttribute('data-pid')));
   }
 
   // ---------- Scheduler & Calendar ----------
@@ -806,12 +854,19 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const snap = await getDocs(qy);
     let found = null; snap.forEach(d => { const x=d.data(); if ((x.meta?.opponent||'')===opponent) found = { id:d.id, data:x }; });
 
-    if (found){ startGameListener(found.id); }
-    else {
+    if (found){
+      // patch missing comp/field/time from schedule if needed
+      const metaPatch = {};
+      if (g.comp && !found.data.meta?.comp) metaPatch['meta.comp']=g.comp;
+      if (g.field && !found.data.meta?.field) metaPatch['meta.field']=g.field;
+      if (g.time && !found.data.meta?.time) metaPatch['meta.time']=g.time;
+      if (Object.keys(metaPatch).length) await updateDoc(doc(db,"teams",teamDocId,"games",found.id), metaPatch);
+      startGameListener(found.id);
+    } else {
       const id = Date.now().toString(36);
       const def = baseDefense();
       const seed = {
-        meta:{ date:dateStr, opponent, isHome, status:'pregame', createdAt:new Date().toISOString() },
+        meta:{ date:dateStr, opponent, isHome, status:'pregame', comp:g.comp||'', field:g.field||'', time:g.time||'', createdAt:new Date().toISOString() },
         home:{ lineup:(data.roster||[]).slice(0,10).map(r=>r.playerId), defense:{...def}, batterIndex:0, name:data.team?.name||'Home' },
         away:{ roster:[], lineup:[], defense:{...def}, batterIndex:0, name:opponent },
         inning:{ half:'top', number:1, outs:0 },
@@ -881,7 +936,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       if (!snap.exists()){
         await setDoc(ref,{
           first,last,dob:null,nameNorm:`${first.toLowerCase()} ${last.toLowerCase()}`,
-          bats:bats||'R', anon:true,
+          bats:bats||'R', anon:true, photo:'',
           stats:{PA:0,AB:0,H:0,"1B":0,"2B":0,"3B":0,HR:0,BB:0,K:0,AVG:"0.000",OBP:"0.000",SLG:"0.000",OPS:"0.000"},
           createdAt:new Date().toISOString()
         });
@@ -894,7 +949,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     return pid;
   }
 
-  // --------- Opponent add flow (prompt & pool & game.roster) ---------
+  // --------- Opponent add flow (instant UI update) ---------
   async function addOpponentPlayerFlow(fullname, bats='R'){
     const opp = $('#gm-opp-name').value.trim() || currentGame?.meta?.opponent || 'Opponent';
     if(!fullname){ $('#gm-opp-hint').textContent='Enter First Last'; return; }
@@ -916,10 +971,13 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       chosenPid = await ensureAnonPlayer(first,last,bats||'R');
     }
 
-    // 1) Save under team’s opponent pool
+    // Save in team pool
     try{ await addToOpponentPool(opp, chosenPid); }catch(e){ console.error('pool save failed', e); }
-
-    // 2) Ensure it’s also in THIS game’s away.roster so lineup pickers always include it
+    // local update for immediate UI
+    const key = oppKey(opp);
+    const cur = new Set((data.opponents?.[key] || [])); cur.add(chosenPid);
+    data.opponents = { ...(data.opponents||{}), [key]: Array.from(cur) };
+    // ensure in this game's away.roster
     try{
       const ref=doc(db,"teams",teamDocId,"games",currentGameId);
       const roster = Array.from(new Set([...(currentGame?.away?.roster||[]), chosenPid]));
@@ -941,7 +999,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     if (idx === -1){ idx = arr.length; arr.push(''); }
     arr[idx] = pid;
     await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { [side]:{ ...(currentGame?.[side]||{}), lineup: arr } }, {merge:true});
-    // Ensure in game roster too
     const roster = Array.from(new Set([...(currentGame?.away?.roster||[]), pid]));
     await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), { away:{ ...(currentGame?.away||{}), roster } }, {merge:true});
     $('#gm-opp-hint').textContent='Added to lineup';
@@ -951,17 +1008,15 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   // ---------- Pregame builders ----------
   async function renderPregameBuilders(){
     if(!currentGame) return;
-
-    // Home uses our roster
     renderLineupBuilder('home', data.roster||[], 'gm-lineup-home');
     renderDefenseBuilder('home', data.roster||[], 'gm-defense-home');
 
-    // Away options = union(poolIds, lineup ids, defense ids) so the selects always include recently added players
     const opp = currentGame?.meta?.opponent || $('#gm-opp-name').value.trim() || '';
-    const poolIds = new Set(getOpponentPoolIds(opp));
+    const poolIds   = new Set(getOpponentPoolIds(opp));
+    const rosterIds = (currentGame?.away?.roster||[]).filter(Boolean);
     const lineupIds = (currentGame?.away?.lineup||[]).filter(Boolean);
-    const defIds = Object.values(currentGame?.away?.defense||{}).filter(Boolean);
-    const allIds = new Set([...poolIds, ...lineupIds, ...defIds]);
+    const defIds    = Object.values(currentGame?.away?.defense||{}).filter(Boolean);
+    const allIds    = new Set([...poolIds, ...rosterIds, ...lineupIds, ...defIds]);
 
     const olist = [];
     for (const id of allIds){
@@ -977,9 +1032,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     renderLineupBuilder('away', olist, 'gm-lineup-away');
     renderDefenseBuilder('away', olist, 'gm-defense-away');
 
-    // Fill the saved dropdown from pool only (ordered)
+    // saved dropdown
     const sel = $('#gm-opp-saved'); sel.innerHTML='';
-    const poolList = [...poolIds];
+    const poolList = Array.from(poolIds);
     if (!poolList.length){
       sel.innerHTML = '<option value="">(no saved players yet)</option>';
     }else{
@@ -995,7 +1050,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   function renderLineupBuilder(side, rosterLike, mountId){
     const host = document.getElementById(mountId); host.innerHTML='';
     const arr = (currentGame?.[side]?.lineup && currentGame[side].lineup.length) ? currentGame[side].lineup : new Array(10).fill('');
-    // Controls
     const controls=document.createElement('div'); controls.className='row'; controls.style.margin='4px 0';
     const addBtn=document.createElement('button'); addBtn.className='btn small'; addBtn.type='button'; addBtn.textContent='Add spot';
     const remBtn=document.createElement('button'); remBtn.className='btn outline small'; remBtn.type='button'; remBtn.textContent='Remove last';
@@ -1011,22 +1065,18 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
     };
 
-    // Options from rosterLike
     const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
     for(let i=0;i<arr.length;i++){
       const wrap=document.createElement('div'); wrap.className='row';
       const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
       const optsHtml='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
       sel.innerHTML = optsHtml;
-
-      // If current value isn’t in options, inject it so it shows up
       const cur = arr[i] || '';
       if (cur && !options.some(o=>o.id===cur)){
         const tmpOpt = document.createElement('option');
         tmpOpt.value = cur; tmpOpt.textContent = nameForId(cur) || cur;
         sel.appendChild(tmpOpt);
       }
-
       sel.value = cur;
       sel.onchange=async()=>{
         const next = Object.assign([], arr, {[i]:sel.value});
@@ -1047,13 +1097,10 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const lab=document.createElement('div'); lab.className='small'; lab.style.width='46px'; lab.textContent=pos;
       const sel=document.createElement('select'); sel.className='input'; sel.style.maxWidth='320px';
       sel.innerHTML='<option value="">— empty —</option>'+options.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
-
-      // Inject current value if it’s not in options
       const cur = def[pos] || '';
       if (cur && !options.some(o=>o.id===cur)){
         const tmp=document.createElement('option'); tmp.value=cur; tmp.textContent=nameForId(cur)||cur; sel.appendChild(tmp);
       }
-
       sel.value=cur;
       sel.onchange=async()=>{
         const patch={}; patch[`${side}.defense.${pos}`]=sel.value||null;
@@ -1099,6 +1146,14 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     if (r) return `${r.first||''} ${r.last||''}`.trim();
     const p=playerCache.get(pid); if (p) return `${p.first||''} ${p.last||''}`.trim();
     return String(pid||'').trim() || 'Player';
+  }
+  function updateGameHeader(){
+    if(!currentGame) return;
+    $('#gm-title').textContent = `${currentGame.home?.name||'Home'} vs ${currentGame.away?.name||currentGame.meta?.opponent||'Away'} — ${currentGame.meta?.date||''}`;
+    $('#gm-bug-opp').textContent = `vs ${currentGame.meta?.opponent||'?'}`;
+    const s = computeScore(currentGame.plays||[]);
+    $('#gm-bug-score').textContent = `${s.home}–${s.away}`;
+    $('#gm-bug-inning').textContent = `${currentGame.inning?.half==='top'?'Top':'Bot'} ${currentGame.inning?.number||1} • ${currentGame.inning?.outs||0} out`;
   }
 
   function renderBasesAndRunners(preview=false){
@@ -1146,7 +1201,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     }
     renderBasesAndRunners(true);
   }
-
   function placeSelectedRunner(base){
     const pid = $('#gm-runner-chips').dataset.sel; if(!pid){ $('#gm-base-msg').textContent='Select a runner first'; return; }
     if (!pending.bases) pending.bases={ first:null,second:null,third:null };
@@ -1173,14 +1227,15 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     if (batter && !['first','second','third'].some(k => (pending.bases||{})[k]===batter) && !(pending.scored||[]).includes(batter)){
       autoPlaceBatterPreview();
     }
-
     const after = Object.assign({ first:null,second:null,third:null }, currentGame.bases||{}, pending.bases||{});
     const runs = (pending.scored||[]).length;
 
     const play = { ts:new Date().toISOString(), batting:side, batter,
       result: pending.result || '1B', hard: pending.hard || 'Medium',
       loc:{ x: pending.x, y: pending.y }, basesAfter: after, runs,
-      inning: currentGame.inning?.number||1, half: currentGame.inning?.half||'top' };
+      inning: currentGame.inning?.number||1, half: currentGame.inning?.half||'top',
+      comp: currentGame.meta?.comp || ''
+    };
 
     const ref=doc(db,"teams",teamDocId,"games",currentGameId);
     await updateDoc(ref, { plays: arrayUnion(play), bases: after });
@@ -1226,10 +1281,243 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-boxscore').innerHTML = html;
   }
 
+  // ---------- Player Profile (modal) ----------
+  let PP = { pid:null, player:null, teamRow:null, playsCache:null, scopes:[] };
+
+  function setPlayerTab(which){
+    ['info','spray','stats'].forEach(t=>{
+      $('#pp-'+t).classList.toggle('active', t===which);
+      $('#pp-tab-'+t).classList.toggle('active', t===which);
+    });
+    if (which==='spray') refreshPlayerSpray();
+    if (which==='stats') refreshPlayerStats();
+  }
+
+  async function openPlayerProfile(pid){
+    PP = { pid, player:null, teamRow:(data.roster||[]).find(r=>r.playerId===pid)||null, playsCache:null, scopes:[] };
+    // load global player
+    const snap = await getDoc(doc(db,"players",pid));
+    PP.player = snap.exists()? snap.data() : { first:'', last:'', dob:'', bats:'R', ranks:{}, photo:'' };
+    playerCache.set(pid, PP.player);
+
+    $('#pp-title').textContent = `${PP.player.first||''} ${PP.player.last||''}`.trim() || pid;
+    $('#pp-photo').src = PP.player.photo || '';
+    $('#pp-first').value = PP.player.first || '';
+    $('#pp-last').value  = PP.player.last || '';
+    $('#pp-dob').value   = PP.player.dob || '';
+    $('#pp-bats').value  = PP.player.bats || 'R';
+    $('#pp-nsa').value   = PP.player.ranks?.nsa || '';
+    $('#pp-spn').value   = PP.player.ranks?.spn || '';
+    $('#pp-num').value   = PP.teamRow?.number || '';
+    $('#pp-pos').value   = (PP.teamRow?.positions||[]).join(', ');
+
+    // build scopes from games where this player has plays
+    await buildPlayerScopes();
+    fillScopeSelectors();
+
+    setPlayerTab('info');
+    $('#player-modal').style.display='flex';
+  }
+
+  async function buildPlayerScopes(){
+    const gamesSnap = await getDocs(collection(doc(db,"teams",teamDocId),"games"));
+    const plays = [];
+    gamesSnap.forEach(docu=>{
+      const g = docu.data();
+      const list = (g.plays||[]).filter(p=>p.batter===PP.pid).map(p=>({ ...p, gameMeta: g.meta||{} }));
+      plays.push(...list);
+    });
+    PP.playsCache = plays;
+    const years = Array.from(new Set(plays.map(p=>(p.gameMeta?.date||'').slice(0,4)).filter(Boolean))).sort();
+    const comps = Array.from(new Set(plays.map(p=>p.gameMeta?.comp||p.comp||'').filter(Boolean))).sort();
+    PP.scopes = [{type:'career', label:'Career (this team)'}]
+      .concat(years.map(y=>({type:'season', value:y, label:`Season ${y}`})))
+      .concat(comps.map(c=>({type:'comp', value:c, label:`Competition: ${c}`})));
+  }
+  function fillScopeSelectors(){
+    const fill = (selId)=> {
+      const sel = $(selId); sel.innerHTML='';
+      PP.scopes.forEach(s=>{
+        const opt=document.createElement('option');
+        opt.value = s.type + (s.value?(':'+s.value):'');
+        opt.textContent = s.label;
+        sel.appendChild(opt);
+      });
+    };
+    fill('#pp-scope-spray'); fill('#pp-scope-stats');
+  }
+
+  function playsForScope(scope){
+    if(!PP.playsCache) return [];
+    const [type,val] = scope.split(':');
+    if (type==='career') return PP.playsCache;
+    if (type==='season') return PP.playsCache.filter(p => (p.gameMeta?.date||'').startsWith(val));
+    if (type==='comp')   return PP.playsCache.filter(p => (p.gameMeta?.comp||p.comp||'')===val);
+    return PP.playsCache;
+  }
+
+  function refreshPlayerSpray(){
+    const scope = $('#pp-scope-spray').value || 'career';
+    const list = playsForScope(scope);
+    drawSprayChart($('#pp-canvas'), list);
+  }
+
+  function drawSprayChart(canvas, plays){
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // draw field (simple)
+    const W=canvas.width, H=canvas.height;
+    ctx.strokeStyle='#1f2937'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(W*0.5, H*0.72, H*0.26, Math.PI, 2*Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W*0.5, H*0.72, H*0.17, Math.PI, 2*Math.PI); ctx.stroke();
+    // bases
+    const drawBase = (x,y)=>{ ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4); ctx.fillStyle='#cbd5e1'; ctx.fillRect(-6,-6,12,12); ctx.restore(); };
+    drawBase(W*0.5, H*0.82); drawBase(W*0.72, H*0.62); drawBase(W*0.5, H*0.42); drawBase(W*0.28, H*0.62);
+
+    // points
+    plays.forEach(p=>{
+      if (!p.loc) return;
+      const x = Number(p.loc.x||p.x)*W;
+      const y = Number(p.loc.y||p.y)*H;
+      const isHit = ['1B','2B','3B','HR'].includes(p.result);
+      ctx.beginPath();
+      ctx.fillStyle = isHit ? '#4ade80' : '#f87171';
+      ctx.globalAlpha = 0.9;
+      ctx.arc(x, y, 5, 0, 2*Math.PI);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+
+    // legend
+    ctx.fillStyle='#e5e7eb'; ctx.font='12px system-ui';
+    ctx.fillText('• Green: Hit   • Red: Out/other', 12, 20);
+    ctx.fillText(`Plays: ${plays.length}`, 12, 36);
+  }
+
+  function refreshPlayerStats(){
+    const scope = $('#pp-scope-stats').value || 'career';
+    const list = playsForScope(scope);
+    const s = computeStats(list);
+    const headers=['PA','AB','H','1B','2B','3B','HR','BB','K','AVG','OBP','SLG','OPS'];
+    const row = `<tr>
+      <td>${s.PA}</td><td>${s.AB}</td><td>${s.H}</td>
+      <td>${s['1B']}</td><td>${s['2B']}</td><td>${s['3B']}</td>
+      <td>${s.HR}</td><td>${s.BB}</td><td>${s.K}</td>
+      <td>${s.AVG}</td><td>${s.OBP}</td><td>${s.SLG}</td><td>${s.OPS}</td>
+    </tr>`;
+    $('#pp-stats-table').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${row}</tbody>`;
+  }
+
+  function computeStats(plays){
+    const cnt = { PA:0, AB:0, H:0, '1B':0, '2B':0, '3B':0, HR:0, BB:0, K:0, SAC:0 };
+    for (const p of plays){
+      cnt.PA++;
+      const r=p.result;
+      if (r==='BB'){ cnt.BB++; continue; }
+      if (r==='SAC'){ cnt.SAC++; continue; }
+      if (['K','TSF'].includes(r)) { cnt.K++; cnt.AB++; continue; }
+      if (['GO','FO','LO','FC','ROE'].includes(r)) { cnt.AB++; if (r==='ROE') {} continue; }
+      if (['1B','2B','3B','HR'].includes(r)){ cnt[r]++; cnt.H++; cnt.AB++; continue; }
+    }
+    const TB = cnt['1B'] + cnt['2B']*2 + cnt['3B']*3 + cnt['HR']*4;
+    const AVG = (cnt.AB>0)? (cnt.H / cnt.AB).toFixed(3) : '0.000';
+    const OBP = ((cnt.H + cnt.BB) / (cnt.AB + cnt.BB + cnt.SAC || 1)).toFixed(3);
+    const SLG = (cnt.AB>0)? (TB / cnt.AB).toFixed(3) : '0.000';
+    const OPS = (parseFloat(OBP)+parseFloat(SLG)).toFixed(3);
+    return {...cnt, AVG, OBP, SLG, OPS};
+  }
+
+  // Save global + team fields
+  async function onPlayerPhotoSelected(e){
+    const f=e.target.files?.[0]; if(!f) return;
+    const dataUrl = await fileToDataURL(f);
+    $('#pp-photo').src = dataUrl;
+  }
+  async function savePlayerGlobal(){
+    const patch = {
+      first: $('#pp-first').value.trim(),
+      last : $('#pp-last').value.trim(),
+      dob  : $('#pp-dob').value || null,
+      bats : $('#pp-bats').value || 'R',
+      ranks: { nsa: $('#pp-nsa').value.trim(), spn: $('#pp-spn').value.trim() },
+      photo: $('#pp-photo').src || ''
+    };
+    await setDoc(doc(db,"players",PP.pid), patch, {merge:true});
+    playerCache.set(PP.pid, { ...(playerCache.get(PP.pid)||{}), ...patch });
+    $('#pp-msg').textContent='Saved';
+    setTimeout(()=>$('#pp-msg').textContent='',1200);
+    renderStats(); renderRoster();
+  }
+  async function savePlayerTeamFields(){
+    const num = $('#pp-num').value?Number($('#pp-num').value):undefined;
+    const pos = $('#pp-pos').value.split(/\s*,\s*/).filter(Boolean);
+    const roster = (data.roster||[]).map(r => r.playerId===PP.pid ? { ...r, number:num, positions:pos } : r);
+    data.roster = roster;
+    await saveTeamDoc({ roster });
+    renderRoster();
+    $('#pp-msg').textContent='Team fields saved';
+    setTimeout(()=>$('#pp-msg').textContent='',1200);
+  }
+
+  // ---------- Helpers ----------
+  function setGameTab(which){
+    ['setup','live'].forEach(t=>{
+      $('#gm-'+t).classList.toggle('active', t===which);
+      $('#gm-tab-'+t).classList.toggle('active', t===which);
+    });
+  }
   function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
 
-  // ---------- Boot ----------
-  setDbg('ready');
+  // ---------- Mini result modal (inside game modal) ----------
+</script>
+
+<!-- Result modal (kept from R24) -->
+<div id="modal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:60;pointer-events:none">
+  <div class="modal-card" style="background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px;pointer-events:auto">
+    <h3 style="margin-top:0">Play details</h3>
+    <div class="row">
+      <div style="max-width:240px;flex:1 1 240px">
+        <label for="md-result">Result</label>
+        <select id="md-result" class="input">
+          <option value="1B">Single</option>
+          <option value="2B">Double</option>
+          <option value="3B">Triple</option>
+          <option value="HR">Home Run</option>
+          <option value="BB">Walk</option>
+          <option value="K">Strikeout</option>
+          <option value="TSF">Third-strike foul</option>
+          <option value="GO">Groundout</option>
+          <option value="FO">Flyout</option>
+          <option value="LO">Lineout</option>
+          <option value="ROE">Reach on Error</option>
+          <option value="FC">Fielder's Choice</option>
+          <option value="SAC">Sacrifice</option>
+        </select>
+      </div>
+      <div style="max-width:180px;flex:1 1 180px">
+        <label for="md-hard">Contact</label>
+        <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
+      </div>
+    </div>
+    <p class="small">Place runners with the base panel. Click <b>Save play</b> when ready.</p>
+    <div class="row" style="justify-content:flex-end">
+      <button id="md-save" class="btn" type="button">Save play</button>
+      <button id="md-close" class="btn outline" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // wire modal buttons for result dialog
+  document.getElementById('md-result').onchange = (e)=>{ window.pending.result = e.target.value; window.autoPlaceBatterPreview?.(); };
+  document.getElementById('md-hard').onchange   = (e)=>{ window.pending.hard = e.target.value; };
+  document.getElementById('md-close').onclick   = ()=> document.getElementById('modal').style.display='none';
+  document.getElementById('md-save').onclick    = ()=> { document.getElementById('modal').style.display='none'; window.savePlay?.(); };
+
+  // expose a couple things used above
+  window.autoPlaceBatterPreview = window.autoPlaceBatterPreview || (()=>{});
+  window.pending = window.pending || { result:'1B', hard:'Medium' };
 </script>
 
 <noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
