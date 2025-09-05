@@ -1167,11 +1167,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const opt=document.createElement('option');
       opt.value=pid; opt.textContent = nameForId(pid);
       sel.appendChild(opt);
-    });
-    const idx = currentGame[side]?.batterIndex || 0;
-    sel.selectedIndex = (arr.length? (idx%arr.length) : -1);
-  }
-
+   Uncaught ReferenceError: advanceBatter is not defined
+    at initUI (statsdonkey/:542:36)
+    at statsdonkey/:598:5
   function updateGameHeader(){
     if(!currentGame) return;
     $('#gm-title').textContent = `${currentGame.home?.name||'Home'} vs ${currentGame.away?.name||currentGame.meta?.opponent||'Away'} — ${currentGame.meta?.date||''}`;
@@ -1180,7 +1178,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-bug-score').textContent = `${s.home}–${s.away}`;
     $('#gm-bug-inning').textContent = `${currentGame.inning?.half==='top'?'Top':'Bot'} ${currentGame.inning?.number||1} • ${currentGame.inning?.outs||0} out`;
   }
-
   // helper to render clickable who labels
   function setWho(sel, pid){
     const el=$(sel);
