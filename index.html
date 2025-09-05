@@ -1508,7 +1508,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const msg = document.createElement('div');
       msg.className = 'small bad';
       msg.textContent = 'Failed to load player: ' + (err.message || String(err));
-      $('#pp-info').prepend(msg);
+            const info = $('#pp-info');
+      info.querySelectorAll('.small.bad').forEach(n => n.remove());
+      info.prepend(msg);
     }
   }
   // expose for safety
