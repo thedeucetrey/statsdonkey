@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R26</title>
+<title>StatsDonkey — R27</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -83,7 +83,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R26</span>
+    <span class="small">BUILD R27</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -200,7 +200,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   </section>
 </main>
 
-<!-- GAME TRACKER MODAL (unchanged core behavior) -->
+<!-- GAME TRACKER MODAL -->
 <div id="game-modal" role="dialog" aria-modal="true" aria-label="Game tracker">
   <div class="gm-card">
     <div class="gm-head">
@@ -552,7 +552,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       pending.result='1B'; pending.hard='Medium';
       pending.bases = { first:null, second:null, third:null }; pending.scored = [];
       renderBasesAndRunners(true);
-      // open mini modal inside game modal
       document.getElementById('modal').style.display='flex';
     });
     $$('.base').forEach(b=>{ b.onclick = ()=> placeSelectedRunner(b.dataset.base); });
@@ -687,7 +686,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
           btn.replaceWith((()=>{const t=document.createElement('span'); t.className='small'; t.style.color='#34d399'; t.textContent='Added'; return t; })());
         };
       });
-      // open profile from search results
+      // names clickable from search too
       out.querySelectorAll('.link[data-pid]').forEach(a => a.onclick = () => openPlayerProfile(a.getAttribute('data-pid')));
     }catch(e){ console.error(e); out.textContent='Search failed.'; }
   }
@@ -709,8 +708,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $$('#tbl-roster button[data-del-pid]').forEach(btn=>{
       btn.onclick = ()=> removeFromRoster(btn.getAttribute('data-del-pid'));
     });
-    // hook name clicks to profile
-    $$('#tbl-roster .link[data-pid]').forEach(a => a.onclick = () => openPlayerProfile(a.getAttribute('data-pid')));
+    // names clickable handled by delegated listener below
   }
 
   // ---------- Stats (team table; names clickable) ----------
@@ -729,7 +727,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       </tr>`;
     }).join('');
     $('#tbl-stats').innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody>`;
-    $$('#tbl-stats .link[data-pid]').forEach(a => a.onclick = () => openPlayerProfile(a.getAttribute('data-pid')));
   }
 
   // ---------- Scheduler & Calendar ----------
@@ -855,7 +852,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     let found = null; snap.forEach(d => { const x=d.data(); if ((x.meta?.opponent||'')===opponent) found = { id:d.id, data:x }; });
 
     if (found){
-      // patch missing comp/field/time from schedule if needed
       const metaPatch = {};
       if (g.comp && !found.data.meta?.comp) metaPatch['meta.comp']=g.comp;
       if (g.field && !found.data.meta?.field) metaPatch['meta.field']=g.field;
@@ -895,7 +891,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       currentGame=snap.data(); currentGameId=gameId;
       if (!currentGame.bases) currentGame.bases={ first:null,second:null,third:null };
 
-      // Migrate legacy away roster strings -> playerIds
+      // Migrate old away roster strings -> playerIds
       if (Array.isArray(currentGame.away?.roster) && currentGame.away.roster.some(x=>typeof x==='string' && !isHex64(x))){
         const names = currentGame.away.roster;
         const ids = [];
@@ -949,7 +945,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     return pid;
   }
 
-  // --------- Opponent add flow (instant UI update) ---------
+  // --------- Opponent add flow (with instant UI update) ---------
   async function addOpponentPlayerFlow(fullname, bats='R'){
     const opp = $('#gm-opp-name').value.trim() || currentGame?.meta?.opponent || 'Opponent';
     if(!fullname){ $('#gm-opp-hint').textContent='Enter First Last'; return; }
@@ -971,13 +967,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       chosenPid = await ensureAnonPlayer(first,last,bats||'R');
     }
 
-    // Save in team pool
     try{ await addToOpponentPool(opp, chosenPid); }catch(e){ console.error('pool save failed', e); }
-    // local update for immediate UI
     const key = oppKey(opp);
     const cur = new Set((data.opponents?.[key] || [])); cur.add(chosenPid);
     data.opponents = { ...(data.opponents||{}), [key]: Array.from(cur) };
-    // ensure in this game's away.roster
+
     try{
       const ref=doc(db,"teams",teamDocId,"games",currentGameId);
       const roster = Array.from(new Set([...(currentGame?.away?.roster||[]), chosenPid]));
@@ -1032,7 +1026,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     renderLineupBuilder('away', olist, 'gm-lineup-away');
     renderDefenseBuilder('away', olist, 'gm-defense-away');
 
-    // saved dropdown
     const sel = $('#gm-opp-saved'); sel.innerHTML='';
     const poolList = Array.from(poolIds);
     if (!poolList.length){
@@ -1281,7 +1274,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-boxscore').innerHTML = html;
   }
 
-  // ---------- Player Profile (modal) ----------
+  // ---------- Player Profile ----------
   let PP = { pid:null, player:null, teamRow:null, playsCache:null, scopes:[] };
 
   function setPlayerTab(which){
@@ -1291,32 +1284,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     });
     if (which==='spray') refreshPlayerSpray();
     if (which==='stats') refreshPlayerStats();
-  }
-
-  async function openPlayerProfile(pid){
-    PP = { pid, player:null, teamRow:(data.roster||[]).find(r=>r.playerId===pid)||null, playsCache:null, scopes:[] };
-    // load global player
-    const snap = await getDoc(doc(db,"players",pid));
-    PP.player = snap.exists()? snap.data() : { first:'', last:'', dob:'', bats:'R', ranks:{}, photo:'' };
-    playerCache.set(pid, PP.player);
-
-    $('#pp-title').textContent = `${PP.player.first||''} ${PP.player.last||''}`.trim() || pid;
-    $('#pp-photo').src = PP.player.photo || '';
-    $('#pp-first').value = PP.player.first || '';
-    $('#pp-last').value  = PP.player.last || '';
-    $('#pp-dob').value   = PP.player.dob || '';
-    $('#pp-bats').value  = PP.player.bats || 'R';
-    $('#pp-nsa').value   = PP.player.ranks?.nsa || '';
-    $('#pp-spn').value   = PP.player.ranks?.spn || '';
-    $('#pp-num').value   = PP.teamRow?.number || '';
-    $('#pp-pos').value   = (PP.teamRow?.positions||[]).join(', ');
-
-    // build scopes from games where this player has plays
-    await buildPlayerScopes();
-    fillScopeSelectors();
-
-    setPlayerTab('info');
-    $('#player-modal').style.display='flex';
   }
 
   async function buildPlayerScopes(){
@@ -1366,16 +1333,13 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // draw field (simple)
     const W=canvas.width, H=canvas.height;
     ctx.strokeStyle='#1f2937'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(W*0.5, H*0.72, H*0.26, Math.PI, 2*Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(W*0.5, H*0.72, H*0.17, Math.PI, 2*Math.PI); ctx.stroke();
-    // bases
     const drawBase = (x,y)=>{ ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4); ctx.fillStyle='#cbd5e1'; ctx.fillRect(-6,-6,12,12); ctx.restore(); };
     drawBase(W*0.5, H*0.82); drawBase(W*0.72, H*0.62); drawBase(W*0.5, H*0.42); drawBase(W*0.28, H*0.62);
 
-    // points
     plays.forEach(p=>{
       if (!p.loc) return;
       const x = Number(p.loc.x||p.x)*W;
@@ -1389,7 +1353,6 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       ctx.globalAlpha = 1;
     });
 
-    // legend
     ctx.fillStyle='#e5e7eb'; ctx.font='12px system-ui';
     ctx.fillText('• Green: Hit   • Red: Out/other', 12, 20);
     ctx.fillText(`Plays: ${plays.length}`, 12, 36);
@@ -1428,7 +1391,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     return {...cnt, AVG, OBP, SLG, OPS};
   }
 
-  // Save global + team fields
+  // ---------- Save global + team fields ----------
   async function onPlayerPhotoSelected(e){
     const f=e.target.files?.[0]; if(!f) return;
     const dataUrl = await fileToDataURL(f);
@@ -1469,10 +1432,54 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   }
   function show(e){e&&e.classList.remove('hidden')} function hide(e){e&&e.classList.add('hidden')}
 
+  // ---------- UPDATED: Player Profile opener (opens immediately) ----------
+  async function openPlayerProfile(pid){
+    // Open modal first
+    $('#player-modal').style.display = 'flex';
+    setPlayerTab('info');
+    $('#pp-title').textContent = 'Loading…';
+    $('#pp-photo').src = '';
+    $('#pp-first').value = $('#pp-last').value = '';
+    $('#pp-dob').value = '';
+    $('#pp-bats').value = 'R';
+    $('#pp-nsa').value = $('#pp-spn').value = '';
+    $('#pp-num').value = '';
+    $('#pp-pos').value = '';
+
+    try{
+      PP = { pid, player:null, teamRow:(data.roster||[]).find(r=>r.playerId===pid)||null, playsCache:null, scopes:[] };
+
+      const snap = await getDoc(doc(db,"players",pid));
+      PP.player = snap.exists() ? snap.data() : { first:'', last:'', dob:'', bats:'R', ranks:{}, photo:'' };
+      playerCache.set(pid, PP.player);
+
+      $('#pp-title').textContent = `${PP.player.first||''} ${PP.player.last||''}`.trim() || pid;
+      $('#pp-photo').src = PP.player.photo || '';
+      $('#pp-first').value = PP.player.first || '';
+      $('#pp-last').value  = PP.player.last || '';
+      $('#pp-dob').value   = PP.player.dob || '';
+      $('#pp-bats').value  = PP.player.bats || 'R';
+      $('#pp-nsa').value   = PP.player.ranks?.nsa || '';
+      $('#pp-spn').value   = PP.player.ranks?.spn || '';
+      $('#pp-num').value   = PP.teamRow?.number || '';
+      $('#pp-pos').value   = (PP.teamRow?.positions||[]).join(', ');
+
+      await buildPlayerScopes();
+      fillScopeSelectors();
+    }catch(err){
+      console.error(err);
+      $('#pp-title').textContent = 'Player';
+      const msg = document.createElement('div');
+      msg.className = 'small bad';
+      msg.textContent = 'Failed to load player: ' + (err.message || String(err));
+      $('#pp-info').prepend(msg);
+    }
+  }
+
   // ---------- Mini result modal (inside game modal) ----------
 </script>
 
-<!-- Result modal (kept from R24) -->
+<!-- Result modal -->
 <div id="modal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:60;pointer-events:none">
   <div class="modal-card" style="background:#0f172a;border:1px solid #1f2937;border-radius:16px;max-width:560px;width:100%;padding:14px;pointer-events:auto">
     <h3 style="margin-top:0">Play details</h3>
@@ -1515,9 +1522,18 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   document.getElementById('md-close').onclick   = ()=> document.getElementById('modal').style.display='none';
   document.getElementById('md-save').onclick    = ()=> { document.getElementById('modal').style.display='none'; window.savePlay?.(); };
 
-  // expose a couple things used above
+  // ---------- Delegated click for ANY ".link[data-pid]" (Roster, Stats, Search) ----------
+  document.addEventListener('click', (ev)=>{
+    const el = ev.target.closest('.link[data-pid]');
+    if (!el) return;
+    ev.preventDefault();
+    (window.openPlayerProfile || (()=>{}))(el.getAttribute('data-pid'));
+  });
+
+  // Expose a couple things used above
   window.autoPlaceBatterPreview = window.autoPlaceBatterPreview || (()=>{});
   window.pending = window.pending || { result:'1B', hard:'Medium' };
+  window.openPlayerProfile = window.openPlayerProfile || (pid => { /* replaced after module load */ });
 </script>
 
 <noscript><div style="background:#fee2e2;color:#7f1d1d;padding:12px;margin:12px;border-radius:8px">
