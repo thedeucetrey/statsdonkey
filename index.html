@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — R31</title>
+<title>StatsDonkey — v7 (runner click fix)</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -76,8 +76,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
 .runner.sel{outline:2px solid var(--acc)}
 
-/* Make ANY element with data-pid look clickable */
-[data-pid]{cursor:pointer}
+/* Only explicit profile links should be clickable */
+[data-pid]{cursor:default}
+.plink[data-pid]{cursor:pointer}
 </style>
 </head>
 <body>
@@ -86,7 +87,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">BUILD R31</span>
+    <span class="small">v7</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -95,7 +96,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   <!-- LOGIN -->
   <section id="view-login" class="card">
     <h2>Team Login</h2>
-    <p class="small">Enter <b>Team</b> and <b>Password</b>. First login creates the team. Any device with the same team+password loads the same data.</p>
+    <p class="small">First login creates the team. Any device with the same team+password loads the same data.</p>
     <div class="row">
       <input id="team-id" class="input" placeholder="Team (e.g., Argos)" autocomplete="off" autocapitalize="none" spellcheck="false" style="max-width:280px"/>
       <input id="team-pass" class="input" type="password" placeholder="Password" autocomplete="new-password" style="max-width:220px"/>
@@ -302,7 +303,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
             <div class="small" style="margin-bottom:6px">Runners (click to select, then click a base)</div>
             <div class="runners" id="gm-runner-chips"></div>
             <div class="hr"></div>
-            <div class="small" style="margin-bottom:6px">Bases (click a name to open profile)</div>
+            <div class="small" style="margin-bottom:6px">Bases (names here won’t open profiles during play)</div>
             <div class="basegrid">
               <div></div>
               <div class="base" data-base="2B"><b>2B</b><span class="who" id="gm-who-2B">—</span></div>
@@ -435,8 +436,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     s = String(s).trim();
     if (s.includes('T')) return s.slice(0,10);
     let m;
-    if ((m = s.match(/^(\\d{4})[-\\/](\\d{1,2})[-\\/](\\d{1,2})/))) return `${m[1]}-${z2(m[2])}-${z2(m[3])}`;
-    if ((m = s.match(/^(\\d{1,2})[-\\/](\\d{1,2})[-\\/](\\d{4})$/))) return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
+    if ((m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/))) return `${m[1]}-${z2(m[2])}-${z2(m[3])}`;
+    if ((m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/))) return `${m[3]}-${z2(m[1])}-${z2(m[2])}`;
     const d = new Date(s);
     if (!isNaN(d)) return `${d.getFullYear()}-${z2(d.getMonth()+1)}-${z2(d.getDate())}`;
     return s;
@@ -449,6 +450,12 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
   const fileToDataURL = (file)=> new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=rej; r.readAsDataURL(file); });
+
+  // Profile link helper — ONLY these open the modal
+  function nameHtml(pid, first, last){
+    const nm = `${first||''} ${last||''}`.trim() || pid;
+    return `<span class="plink" data-pid="${pid}" data-profile="1">${nm}</span>`;
+  }
 
   // ---------- State ----------
   let teamDocId = null, unsubTeam = null, unsubGame = null;
@@ -551,7 +558,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       const r = ev.currentTarget.getBoundingClientRect();
       pending.x = ((ev.clientX - r.left) / r.width).toFixed(3);
       pending.y = ((ev.clientY - r.top) / r.height).toFixed(3);
-      $('#md-result').value = '1B'; $('#md-hard').value='Medium';
+      document.getElementById('md-result').value = '1B';
+      document.getElementById('md-hard').value = 'Medium';
       pending.result='1B'; pending.hard='Medium';
       pending.bases = { first:null, second:null, third:null }; pending.scored = [];
       renderBasesAndRunners(true);
@@ -559,7 +567,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     });
     $$('.base').forEach(b=>{ b.onclick = ()=> placeSelectedRunner(b.dataset.base); });
 
-    // Opponent add flow
+    // Opponent flow
     $('#gm-btn-opp-add').onclick = ()=> addOpponentPlayerFlow($('#gm-opp-add').value.trim(), $('#gm-opp-bats').value);
     $('#gm-btn-opp-use-saved').onclick = ()=> addSavedOpponentToLineup();
     $('#gm-opp-name').addEventListener('change', ()=> renderPregameBuilders());
@@ -584,15 +592,17 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#pp-scope-spray').onchange = ()=> refreshPlayerSpray();
     $('#pp-scope-stats').onchange = ()=> refreshPlayerStats();
 
-    // Global delegated click: ANYTHING with data-pid opens the profile
+    // Global delegated click — ONLY explicit profile links
     document.addEventListener('click', (ev)=>{
-      const tgt = ev.target.closest('[data-pid]');
-      if (!tgt) return;
-      const pid = tgt.getAttribute('data-pid');
-      if (!pid) return;
+      const el = ev.target.closest('[data-pid]');
+      if (!el) return;
+      if (el.hasAttribute('data-noprof')) return; // ignore non-profile elements (runners, base labels)
+      const explicit = el.classList.contains('plink') || el.getAttribute('data-profile')==='1';
+      if (!explicit) return;
+      const pid = el.getAttribute('data-pid'); if (!pid) return;
       ev.preventDefault();
       openPlayerProfile(pid);
-    }, true); // capture so nothing can swallow it
+    }, true);
 
     setDbg('ready');
   })();
@@ -682,7 +692,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         const nm = `${r.first||''} ${r.last||''}`.trim();
         li.innerHTML=`
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <div><span class="plink" data-pid="${r.id}">${nm}</span> — DOB: ${r.dob||'—'} • Bats: ${r.bats||'R'}</div>
+            <div><span class="plink" data-pid="${r.id}" data-profile="1">${nm}</span> — DOB: ${r.dob||'—'} • Bats: ${r.bats||'R'}</div>
             <div class="small">NSA: ${r.ranks?.nsa||'-'} | SPN: ${r.ranks?.spn||'-'}</div>
             ${already?'<span class="small" style="color:#34d399">Already on roster</span>':'<button class="btn small" data-add="'+r.id+'">Add to team</button>'}
           </div>`;
@@ -705,7 +715,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
   function renderRoster(){
     const rows=(data.roster||[]).map(p=>`<tr>
-      <td><span class="plink" data-pid="${p.playerId}">${p.first} ${p.last}</span></td>
+      <td>${nameHtml(p.playerId, p.first, p.last)}</td>
       <td>${p.number||''}</td>
       <td>${(p.positions||[]).join(', ')}</td>
       <td>${p.dob||''}</td>
@@ -728,9 +738,9 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const body = (data.roster||[]).map(r=>{
       const p = playerCache.get(r.playerId) || {};
       const s = p.stats || {};
-      const nm = `${r.first||''} ${r.last||''}`.trim();
+      const nmHtml = nameHtml(r.playerId, r.first||'', r.last||'');
       return `<tr>
-        <td><span class="plink" data-pid="${r.playerId}">${nm}</span> <span class="small" style="opacity:.8">(${p.bats||r.bats||'R'})</span></td>
+        <td>${nmHtml} <span class="small" style="opacity:.8">(${p.bats||r.bats||'R'})</span></td>
         <td>${s.PA||0}</td><td>${s.AB||0}</td><td>${s.H||0}</td>
         <td>${s['1B']||0}</td><td>${s['2B']||0}</td><td>${s['3B']||0}</td>
         <td>${s.HR||0}</td><td>${s.BB||0}</td><td>${s.K||0}</td>
@@ -1066,15 +1076,8 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const remBtn=document.createElement('button'); remBtn.className='btn outline small'; remBtn.type='button'; remBtn.textContent='Remove last';
     controls.appendChild(addBtn); controls.appendChild(remBtn); host.appendChild(controls);
 
-    addBtn.onclick = async ()=>{
-      const next=[...arr, ''];
-      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
-    };
-    remBtn.onclick = async ()=>{
-      const min=10; if (arr.length<=min) return;
-      const next=arr.slice(0,-1);
-      await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
-    };
+    addBtn.onclick = async ()=>{ const next=[...arr, '']; await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true}); };
+    remBtn.onclick = async ()=>{ const min=10; if (arr.length<=min) return; const next=arr.slice(0,-1); await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true}); };
 
     const options = rosterLike.map(p=>({id:p.playerId || `${p.first} ${p.last}`.trim(), name:(p.first&&p.last)?`${p.first} ${p.last}`:p.playerId||''}));
     for(let i=0;i<arr.length;i++){
@@ -1092,15 +1095,13 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
       const view=document.createElement('button'); view.className='btn outline small'; view.type='button'; view.textContent='View';
       view.disabled = !cur;
-      if (cur) view.setAttribute('data-pid', cur);
+      view.onclick = ()=> { const id = sel.value || cur; if (id) openPlayerProfile(id); };
+
       sel.onchange=async()=>{
         const next = Object.assign([], arr, {[i]:sel.value});
         await setDoc(doc(db,"teams",teamDocId,"games",currentGameId), {[side]:{...(currentGame?.[side]||{}), lineup: next}}, {merge:true});
-      };
-      sel.addEventListener('change', ()=>{
         view.disabled = !sel.value;
-        if (sel.value) view.setAttribute('data-pid', sel.value); else view.removeAttribute('data-pid');
-      });
+      };
 
       wrap.appendChild(document.createTextNode(String(i+1))); wrap.appendChild(sel); wrap.appendChild(view);
       host.appendChild(wrap);
@@ -1125,16 +1126,13 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
       const view=document.createElement('button'); view.className='btn outline small'; view.type='button'; view.textContent='View';
       view.disabled = !cur;
-      if (cur) view.setAttribute('data-pid', cur);
+      view.onclick = ()=> { const id = sel.value || cur; if (id) openPlayerProfile(id); };
 
       sel.onchange=async()=>{
         const patch={}; patch[`${side}.defense.${pos}`]=sel.value||null;
         await updateDoc(doc(db,"teams",teamDocId,"games",currentGameId), patch);
-      };
-      sel.addEventListener('change', ()=>{
         view.disabled = !sel.value;
-        if (sel.value) view.setAttribute('data-pid', sel.value); else view.removeAttribute('data-pid');
-      });
+      };
 
       row.appendChild(lab); row.appendChild(sel); row.appendChild(view); host.appendChild(row);
     });
@@ -1164,9 +1162,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const sel=$('#gm-sel-batter'); sel.innerHTML='';
     const arr = currentGame[side]?.lineup || [];
     arr.forEach(pid=>{
-      const opt=document.createElement('option');
-      opt.value=pid; opt.textContent = nameForId(pid);
-      sel.appendChild(opt);
+      const opt=document.createElement('option'); opt.value=pid; opt.textContent = nameForId(pid); sel.appendChild(opt);
     });
     const idx = currentGame[side]?.batterIndex || 0;
     sel.selectedIndex = (arr.length? (idx%arr.length) : -1);
@@ -1181,10 +1177,10 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     $('#gm-bug-inning').textContent = `${currentGame.inning?.half==='top'?'Top':'Bot'} ${currentGame.inning?.number||1} • ${currentGame.inning?.outs||0} out`;
   }
 
-  // helper to render clickable who labels
+  // clickable labels on bases should NOT open profiles during play
   function setWho(sel, pid){
     const el=$(sel);
-    el.innerHTML = pid ? `<span class="plink" data-pid="${pid}">${nameForId(pid)}</span>` : '—';
+    el.innerHTML = pid ? `<span class="who-tag" data-pid="${pid}" data-noprof="1">${nameForId(pid)}</span>` : '—';
   }
 
   function renderBasesAndRunners(preview=false){
@@ -1196,7 +1192,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     setWho('#gm-who-2B', comb.second);
     setWho('#gm-who-3B', comb.third);
     const scoredHtml = (pending.scored&&pending.scored.length)
-      ? ('Scored: '+pending.scored.map(id=>`<span class="plink" data-pid="${id}">${nameForId(id)}</span>`).join(', '))
+      ? ('Scored: '+pending.scored.map(id=>`<span class="who-tag" data-pid="${id}" data-noprof="1">${nameForId(id)}</span>`).join(', '))
       : '—';
     $('#gm-who-H').innerHTML = scoredHtml;
 
@@ -1209,7 +1205,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
     const host=$('#gm-runner-chips'); host.innerHTML='';
     chips.forEach(c=>{
-      const el=document.createElement('div'); el.className='runner'; el.textContent=c.label; el.dataset.pid=c.id;
+      const el=document.createElement('div'); el.className='runner'; el.textContent=c.label; el.dataset.pid=c.id; el.setAttribute('data-noprof','1');
       el.onclick=()=>{ $$('#gm-runner-chips .runner').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); host.dataset.sel = c.id; $('#gm-base-msg').textContent='Selected: '+c.label; };
       host.appendChild(el);
     });
