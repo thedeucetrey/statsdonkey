@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>StatsDonkey — v7 (runner click fix)</title>
+<title>StatsDonkey — v8 (outs + inning auto)</title>
 <style>
 :root{--bg:#0b1220;--card:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--acc:#4ade80;--line:#1f2937;--pad:14px;--rad:16px}
 *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -76,7 +76,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 .runner{border:1px solid #334155;border-radius:999px;padding:6px 10px;background:#0f172a;cursor:pointer}
 .runner.sel{outline:2px solid var(--acc)}
 
-/* Only explicit profile links should be clickable */
+/* Only explicit profile links should be clickable (runner/base labels won't) */
 [data-pid]{cursor:default}
 .plink[data-pid]{cursor:pointer}
 </style>
@@ -87,7 +87,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     <div class="brand">StatsDonkey</div>
     <div id="nav-status" class="small"></div>
     <div class="spacer"></div>
-    <span class="small">v7</span>
+    <span class="small">v8</span>
     <button id="btn-logout" class="btn outline small hidden" type="button" style="margin-left:8px">Logout</button>
   </div>
 </nav>
@@ -560,6 +560,7 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
       pending.y = ((ev.clientY - r.top) / r.height).toFixed(3);
       document.getElementById('md-result').value = '1B';
       document.getElementById('md-hard').value = 'Medium';
+      const mdOuts = document.getElementById('md-outs'); if (mdOuts) mdOuts.value = '0';
       pending.result='1B'; pending.hard='Medium';
       pending.bases = { first:null, second:null, third:null }; pending.scored = [];
       renderBasesAndRunners(true);
@@ -1148,6 +1149,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
   }
 
   // ---------- Live ----------
+  function defaultOutsFor(r){
+    if (['K','TSF','GO','FO','LO','SAC','FC'].includes(r)) return 1;
+    return 0;
+  }
+
   function updateLiveViews(){
     if(!currentGame) return;
     populateBatterSelect();
@@ -1216,10 +1222,11 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
     const alreadyPlaced = ['first','second','third'].some(k => (pending.bases||{})[k]===batterId);
     if (alreadyPlaced) { renderBasesAndRunners(true); return; }
     const r = pending.result;
+
     if (r==='HR'){
       pending.scored = Array.from(new Set([...(pending.scored||[]), batterId]));
       for (const k of ['first','second','third']) if ((pending.bases||{})[k]===batterId) pending.bases[k]=null;
-    } else if (['1B','BB','ROE','FC','SAC'].includes(r)){
+    } else if (['1B','BB','ROE','FC'].includes(r)){ // NOTE: SAC removed
       pending.bases = Object.assign({first:null,second:null,third:null}, pending.bases||{});
       pending.bases.first = batterId;
     } else if (r==='2B'){
@@ -1252,29 +1259,76 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 
   async function savePlay(){
     if(!currentGameId) return;
-    const side = $('#gm-sel-side').value;
+
+    const side   = $('#gm-sel-side').value;
     const batter = $('#gm-sel-batter').value || 'Unknown';
-    if (batter && !['first','second','third'].some(k => (pending.bases||{})[k]===batter) && !(pending.scored||[]).includes(batter)){
+
+    // If batter not placed and the result implies a base, place them (not for SAC)
+    if (batter &&
+        !['first','second','third'].some(k => (pending.bases||{})[k]===batter) &&
+        !(pending.scored||[]).includes(batter)){
       autoPlaceBatterPreview();
     }
-    const after = Object.assign({ first:null,second:null,third:null }, currentGame.bases||{}, pending.bases||{});
+
+    // Bases after play (pre-switch)
+    let after = Object.assign({ first:null,second:null,third:null }, currentGame.bases||{}, pending.bases||{});
     const runs = (pending.scored||[]).length;
 
-    const play = { ts:new Date().toISOString(), batting:side, batter,
-      result: pending.result || '1B', hard: pending.hard || 'Medium',
-      loc:{ x: pending.x, y: pending.y }, basesAfter: after, runs,
-      inning: currentGame.inning?.number||1, half: currentGame.inning?.half||'top',
-      comp: currentGame.meta?.comp || ''
+    // OUTS handling
+    const outsInc = Number(document.getElementById('md-outs')?.value ?? defaultOutsFor(pending.result || '1B'));
+    const inning  = { ...currentGame.inning };
+    inning.outs   = Number(inning.outs||0) + outsInc;
+
+    // Build play record with BEFORE-switch inning/half
+    const play = {
+      ts:new Date().toISOString(),
+      batting:side,
+      batter,
+      result: pending.result || '1B',
+      hard:   pending.hard   || 'Medium',
+      loc:{ x: pending.x, y: pending.y },
+      basesAfter: null,  // fill below
+      runs,
+      inning: currentGame.inning?.number || 1,
+      half:   currentGame.inning?.half   || 'top',
+      comp:   currentGame.meta?.comp || ''
     };
 
-    const ref=doc(db,"teams",teamDocId,"games",currentGameId);
+    // Switch half-inning if outs hit 3
+    let switched = false;
+    if (inning.outs >= 3){
+      inning.outs -= 3; // carry over if DP/TP makes >3
+      if (currentGame.inning?.half === 'top'){ inning.half = 'bottom'; }
+      else { inning.half = 'top'; inning.number = (Number(currentGame.inning?.number||1) + 1); }
+      switched = true;
+    }
+
+    // If inning switched, clear bases
+    if (switched){
+      after = { first:null,second:null,third:null };
+    }
+
+    // attach final basesAfter to the saved play
+    play.basesAfter = after;
+
+    const ref = doc(db,"teams",teamDocId,"games",currentGameId);
+
+    // 1) append play + update bases
     await updateDoc(ref, { plays: arrayUnion(play), bases: after });
+
+    // 2) advance batter for the side that just hit
     const len = (currentGame?.[side]?.lineup||[]).length||0;
     const next = len ? (((currentGame?.[side]?.batterIndex||0)+1)%len) : 0;
-    await setDoc(ref, { [side]:{ ...(currentGame?.[side]||{}), batterIndex: next } }, {merge:true});
 
+    // 3) write inning + batterIndex
+    await setDoc(ref, {
+      [side]: { ...(currentGame?.[side]||{}), batterIndex: next },
+      inning
+    }, { merge:true });
+
+    // Reset pending for next play entry
     pending = { x:null, y:null, result:'1B', hard:'Medium', bases:{ first:null,second:null,third:null }, scored:[] };
-    $('#gm-base-msg').textContent='Play saved';
+    $('#gm-base-msg').textContent = switched ? 'Play saved — inning changed' : 'Play saved';
   }
 
   function advanceBatter(){
@@ -1553,6 +1607,16 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
         <label for="md-hard">Contact</label>
         <select id="md-hard" class="input"><option>Medium</option><option>Hard</option><option>Soft</option></select>
       </div>
+      <!-- Outs select -->
+      <div style="max-width:140px;flex:1 1 140px">
+        <label for="md-outs">Outs on play</label>
+        <select id="md-outs" class="input">
+          <option value="0">0</option>
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </div>
     </div>
     <p class="small">Place runners with the base panel. Click <b>Save play</b> when ready.</p>
     <div class="row" style="justify-content:flex-end">
@@ -1563,9 +1627,18 @@ nav .wrap{display:flex;align-items:center;gap:10px;max-width:980px;margin:0 auto
 </div>
 
 <script type="module">
-  // Modal wiring
-  document.getElementById('md-result').onchange = (e)=>{ window.pending.result = e.target.value; window.autoPlaceBatterPreview?.(); };
-  document.getElementById('md-hard').onchange   = (e)=>{ window.pending.hard = e.target.value; };
+  // Modal wiring (local helper for default outs based on result)
+  const defaultOutsFor = (r) => (['K','TSF','GO','FO','LO','SAC','FC'].includes(r) ? 1 : 0);
+
+  document.getElementById('md-result').onchange = (e)=>{
+    const val = e.target.value;
+    window.pending.result = val;
+    const outsSel = document.getElementById('md-outs');
+    if (outsSel) outsSel.value = String(defaultOutsFor(val));
+    window.autoPlaceBatterPreview?.();
+  };
+
+  document.getElementById('md-hard').onchange = (e)=>{ window.pending.hard = e.target.value; };
   document.getElementById('md-close').onclick   = ()=> document.getElementById('modal').style.display='none';
   document.getElementById('md-save').onclick    = ()=> { document.getElementById('modal').style.display='none'; window.savePlay?.(); };
 </script>
